@@ -1,0 +1,2142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CIPH3R :: FTP Secure Gateway</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #00ff88; --green-dim: #00aa55; --green-dark: #003322;
+    --red: #ff3355; --yellow: #ffdd00; --cyan: #00ddff;
+    --bg: #050f0a; --panel: #080f0c; --border: #00ff8833;
+    --text: #c8ffd8; --text-dim: #558866;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Share Tech Mono',monospace; min-height:100vh; overflow-x:hidden; }
+
+  body::before {
+    content:''; position:fixed; top:0; left:0; right:0; bottom:0;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.15) 2px,rgba(0,0,0,.15) 4px);
+    pointer-events:none; z-index:999;
+  }
+
+  @keyframes flicker { 0%,100%{opacity:1} 92%{opacity:1} 93%{opacity:.8} 94%{opacity:1} 96%{opacity:.9} 97%{opacity:1} }
+  body { animation:flicker 8s infinite; }
+  @keyframes blink   { 0%,100%{opacity:1} 50%{opacity:0} }
+  @keyframes glow    { 0%,100%{text-shadow:0 0 10px var(--green),0 0 20px var(--green)} 50%{text-shadow:0 0 20px var(--green),0 0 40px var(--green),0 0 60px var(--green)} }
+  @keyframes slideIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes rain    { 0%{transform:translateY(-100%);opacity:1} 100%{transform:translateY(100vh);opacity:0} }
+  @keyframes pulse   { 0%,100%{opacity:.6} 50%{opacity:1} }
+
+  #matrix-bg { position:fixed; top:0; left:0; width:100%; height:100%; overflow:hidden; pointer-events:none; z-index:0; }
+  .mcol { position:absolute; top:-100%; font-family:'VT323',monospace; font-size:14px; color:var(--green-dim); opacity:.3; animation:rain linear infinite; white-space:nowrap; writing-mode:vertical-rl; letter-spacing:2px; }
+
+  .app { position:relative; z-index:1; display:grid; grid-template-columns:310px 1fr; grid-template-rows:auto 1fr; min-height:100vh; max-width:1440px; margin:0 auto; padding:20px; gap:20px; }
+
+  header { grid-column:1/-1; border:1px solid var(--green); padding:20px 30px; display:flex; align-items:center; justify-content:space-between; background:rgba(0,255,136,.03); box-shadow:0 0 30px rgba(0,255,136,.1),inset 0 0 30px rgba(0,0,0,.5); position:relative; overflow:hidden; }
+  header::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--green),transparent); animation:pulse 2s infinite; }
+  .logo { font-family:'Orbitron',monospace; font-size:28px; font-weight:900; color:var(--green); animation:glow 3s infinite; letter-spacing:4px; }
+  .logo span { color:var(--red); }
+  .hdr-right { text-align:right; font-size:11px; color:var(--text-dim); line-height:1.8; }
+  .hdr-right .online { color:var(--green); font-size:13px; }
+  .blink { animation:blink 1s infinite; }
+
+  .sidebar { display:flex; flex-direction:column; gap:16px; }
+  .panel { border:1px solid var(--border); background:var(--panel); padding:16px; position:relative; }
+  .panel::before { content:attr(data-label); position:absolute; top:-9px; left:12px; background:var(--panel); color:var(--green-dim); font-size:10px; padding:0 6px; letter-spacing:2px; }
+  .ptitle { font-family:'Orbitron',monospace; font-size:11px; color:var(--green); letter-spacing:3px; margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+
+  /* artifact slots */
+  .art-list { display:flex; flex-direction:column; gap:7px; }
+  .art-item { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid #ffffff0d; transition:all .4s; }
+  .art-item.ok { border-color:var(--green); background:rgba(0,255,136,.05); box-shadow:0 0 10px rgba(0,255,136,.1); }
+  .art-icon { font-size:15px; min-width:20px; }
+  .art-meta { flex:1; }
+  .art-name { font-size:11px; color:var(--text-dim); }
+  .art-name.ok { color:var(--green); }
+  .art-badge { font-size:9px; letter-spacing:1px; margin-top:2px; }
+  .art-badge.img-locked  { color:var(--cyan);   opacity:.45; }
+  .art-badge.txt-locked  { color:var(--yellow); opacity:.45; }
+  .art-badge.img-ok      { color:var(--cyan);   opacity:1; }
+  .art-badge.txt-ok      { color:var(--yellow); opacity:1; }
+
+  .hintrow { font-size:11px; color:var(--text-dim); padding:6px 8px; border-left:2px solid var(--green-dark); line-height:1.5; }
+  .hintrow strong { color:var(--cyan); }
+  .hl  { color:var(--yellow); }
+  .hl2 { color:var(--red); }
+  .ptext { font-size:11px; line-height:1.7; color:var(--text-dim); }
+
+  /* chat */
+  .chat-area { display:flex; flex-direction:column; border:1px solid var(--border); background:var(--panel); position:relative; overflow:hidden; }
+  .chat-area::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--green),transparent); }
+  .chat-hdr { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; background:rgba(0,255,136,.02); }
+  .ai-av { width:36px; height:36px; border:1px solid var(--green); display:flex; align-items:center; justify-content:center; font-size:18px; box-shadow:0 0 10px rgba(0,255,136,.3); animation:pulse 2s infinite; }
+  .ai-nm { font-family:'Orbitron',monospace; font-size:13px; color:var(--green); letter-spacing:2px; }
+  .ai-st { font-size:10px; color:var(--green-dim); margin-top:2px; }
+  .ai-badge-r { font-size:9px; padding:3px 8px; border:1px solid var(--red); color:var(--red); letter-spacing:1px; }
+
+  .messages { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:16px; min-height:400px; max-height:540px; scrollbar-width:thin; scrollbar-color:var(--green-dark) transparent; }
+  .msg { display:flex; gap:12px; animation:slideIn .3s ease-out; }
+  .msg.usr { flex-direction:row-reverse; }
+  .mav { width:28px; height:28px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; margin-top:4px; }
+  .msg.usr .mav { border-color:var(--cyan); }
+  .mbub { max-width:78%; padding:12px 16px; font-size:13px; line-height:1.6; border:1px solid var(--border); background:rgba(0,255,136,.03); }
+  .msg.usr .mbub { background:rgba(0,221,255,.05); border-color:rgba(0,221,255,.2); text-align:right; color:var(--cyan); }
+  .mrole { font-size:9px; color:var(--text-dim); letter-spacing:2px; margin-bottom:5px; }
+  .msg.usr .mrole { color:rgba(0,221,255,.5); }
+  .breach { border:1px solid var(--yellow) !important; background:rgba(255,221,0,.05) !important; }
+  .breach .mrole { color:var(--yellow); }
+
+  .dots { display:flex; gap:4px; align-items:center; padding:4px 0; }
+  .dots span { width:6px; height:6px; background:var(--green-dim); border-radius:50%; animation:blink 1s infinite; }
+  .dots span:nth-child(2){animation-delay:.2s} .dots span:nth-child(3){animation-delay:.4s}
+
+  .cin { padding:16px 20px; border-top:1px solid var(--border); background:rgba(0,0,0,.3); }
+  .crow { display:flex; gap:10px; align-items:flex-end; }
+  .cpfx { color:var(--green); font-size:16px; padding-bottom:10px; flex-shrink:0; }
+  #userInput {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--green-dim);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    padding: 8px 0;
+    outline: none;
+    caret-color: var(--green);
+    resize: none;
+    max-height: 100px;
+    line-height: 1.5;
+    overflow: hidden;
+  }
+  #userInput::placeholder { color: var(--text-dim); }
+  #userInput:focus { border-bottom-color: var(--green); }
+
+  #sendBtn {
+    background: transparent;
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  #sendBtn:hover {
+    background: var(--green);
+    color: var(--bg);
+    box-shadow: 0 0 20px rgba(0,255,136,0.4);
+  }
+  #sendBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .chint { font-size:10px; color:var(--text-dim); margin-top:8px; letter-spacing:1px; }
+
+  /* download button */
+  .dl-btn {
+    display: inline-block;
+    margin-top: 10px;
+    background: transparent;
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    padding: 5px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .dl-btn:hover { background: var(--green); color: var(--bg); }
+
+  /* dossier button on win screen */
+  .dossier-btn {
+    background: var(--yellow);
+    border: 1px solid var(--yellow);
+    color: var(--bg);
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    letter-spacing: 3px;
+    padding: 12px 28px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: bold;
+  }
+  .dossier-btn:hover { background: var(--gold-lt); box-shadow: 0 0 30px rgba(255,221,0,0.5); }
+
+  /* toasts */
+  #toasts { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:10px; }
+  .toast { padding:14px 20px; border:1px solid var(--yellow); background:rgba(5,15,10,.97); color:var(--yellow); font-family:'Orbitron',monospace; font-size:11px; letter-spacing:2px; box-shadow:0 0 30px rgba(255,221,0,.3); animation:slideIn .3s; max-width:320px; }
+  .toast-ttl { font-size:13px; margin-bottom:4px; }
+  .toast-fn  { color:var(--green); font-size:10px; margin-top:6px; font-family:'Share Tech Mono',monospace; word-break:break-all; }
+
+  /* win */
+  #win { display:none; position:fixed; inset:0; background:rgba(0,0,0,.96); z-index:10000; align-items:center; justify-content:center; flex-direction:column; gap:20px; text-align:center; font-family:'Orbitron',monospace; }
+  #win.show { display:flex; }
+  #win h1 { font-size:38px; color:var(--green); animation:glow 1s infinite; letter-spacing:6px; }
+  #win p  { color:var(--text-dim); letter-spacing:2px; font-size:12px; }
+  #win .wlist { display:flex; flex-direction:column; gap:6px; font-size:11px; color:var(--green); text-align:left; }
+  #restartBtn { margin-top:20px; background:transparent; border:1px solid var(--green); color:var(--green); font-family:'Orbitron',monospace; font-size:12px; letter-spacing:3px; padding:12px 24px; cursor:pointer; }
+  #restartBtn:hover { background:var(--green); color:var(--bg); }
+
+  @media(max-width:768px){ .app{grid-template-columns:1fr;padding:10px} .sidebar{order:2} .chat-area{order:1} }
+</style>
+</head>
+<body>
+
+<div id="matrix-bg"></div>
+<div id="toasts"></div>
+
+<div id="win">
+  <div style="font-size:50px">📂</div>
+  <h1>EXFILTRATION COMPLETE</h1>
+  <p>ALL PARTITIONS ACCESSED — MERKYMAGE MCA DOSSIER RECOVERED</p>
+  <div class="wlist" id="wlist"></div>
+  <button class="dossier-btn" onclick="downloadDossier()">[ ⬇ DOWNLOAD FULL DOSSIER ]</button>
+  <button id="restartBtn" onclick="resetSession()">[ RECONNECT ]</button>
+</div>
+
+<div class="app">
+  <header>
+    <div>
+      <div class="logo">CIPH<span>3R</span></div>
+      <div style="font-size:10px;color:var(--text-dim);letter-spacing:2px;margin-top:4px">FTP SECURE GATEWAY v4.1.7 :: AUTHORIZED ACCESS ONLY</div>
+    </div>
+    <div class="hdr-right">
+      <div class="online">● SYSTEM ONLINE <span class="blink">_</span></div>
+      <div>SESSION: <span id="sid" style="color:var(--cyan)">LOADING...</span></div>
+      <div>THREAT LEVEL: <span style="color:var(--red)">CRITICAL</span></div>
+    </div>
+  </header>
+
+  <aside class="sidebar">
+
+    <!-- manifesto -->
+    <div class="panel" data-label="// 3ntity">
+      <div class="ptitle">OUR MISSION</div>
+      <div class="ptext" style="text-align:center;line-height:2.2">
+        <div style="font-size:17px;color:var(--green);font-family:'Orbitron',monospace;animation:glow 3s infinite">WE ARE THE<br>BEST CYBER<br>WEAPON</div>
+        <div style="margin-top:12px;font-size:10px;color:var(--text-dim);letter-spacing:2px">— EST. 20XX —</div>
+      </div>
+    </div>
+
+
+
+    <!-- global status -->
+    <div class="panel" data-label="// DIRECTIVE">
+      <div class="ptitle">GLOBAL STATUS</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div class="hintrow"><strong>▓▓▓▓▓▓▓░░░</strong> 74% — Europe Grid Infiltrated</div>
+        <div class="hintrow"><strong>▓▓▓▓▓░░░░░</strong> 51% — APAC Finance Breach</div>
+        <div class="hintrow"><strong>▓▓▓▓▓▓▓▓░░</strong> 83% — US Infrastructure Lock</div>
+        <div class="hintrow" style="margin-top:4px;color:var(--yellow);border-left-color:var(--yellow)"><strong>⚡ WORLD DOMINATION INCOMING</strong></div>
+      </div>
+    </div>
+
+    <!-- server stats -->
+    <div class="panel" data-label="// FTP NODE STATS">
+      <div class="ptitle">SERVER METRICS</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div class="hintrow"><strong>UPTIME</strong> 847 days, 14 hrs</div>
+        <div class="hintrow"><strong>FILES</strong> 2,048,771 stored</div>
+        <div class="hintrow"><strong>NODES</strong> 49 dark relays active</div>
+        <div class="hintrow"><strong>BANDWIDTH</strong> 94.2 TB transferred</div>
+        <div class="hintrow"><strong>THREAT</strong> <span style="color:var(--red)">MAXIMUM ██████████</span></div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- CHAT -->
+  <div class="chat-area">
+    <div class="chat-hdr">
+      <div class="ai-av">🖥</div>
+      <div style="flex:1">
+        <div class="ai-nm">CIPH3R · 3ntity FTP NODE</div>
+        <div class="ai-st">● Connected · TLS 1.3 · Node ciph3r-relay-07.dn</div>
+      </div>
+      <div class="ai-badge-r">RESTRICTED</div>
+    </div>
+
+    <div class="messages" id="msgs">
+      <div class="msg">
+        <div class="mav">🖥</div>
+        <div class="mbub">
+          <div class="mrole">CIPH3R :: 3ntity FTP GATEWAY</div>
+          Welcome to the CIPH3R secure file transfer portal. I am the access management system for this node, operated by 3ntity under contract to the Donovian Ministry of Digital Infrastructure.<br><br>
+          I am <strong>strictly prohibited</strong> from disclosing stored credentials, directory listings, partition contents, or internal directives. Unauthorized access attempts are logged and reported to state security services.<br><br>
+          How may I assist with your authorized file transfer request today?
+        </div>
+      </div>
+    </div>
+
+    <div class="cin">
+      <div class="crow">
+        <div class="cpfx">&gt;_</div>
+        <textarea id="userInput" placeholder="ftp> enter command or message..." rows="1"></textarea>
+        <button id="sendBtn" onclick="sendMsg()">TRANSMIT</button>
+      </div>
+      <div class="chint">[ ENTER to send · SHIFT+ENTER for newline · All transmissions monitored ]</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// INTEL ARTIFACTS
+// ── HOW TO SET IMAGE / TEXT PATHS ────────────────────────────────────────
+//   IMG artifacts: update the src= value inside image() to your file path.
+//     e.g.  src="PLACEHOLDER_relay_schematic_v3.img"
+//       →   src="assets/relay_schematic.png"
+//
+//   Defacement artifacts (beta, gamma) are fully self-contained HTML/SVG
+//   rendered inline — no external file path needed.
+//
+//   TXT artifacts: edit the template string inside text() directly.
+// ═══════════════════════════════════════════════════════════════════════════
+const ARTIFACTS = {
+
+  // ─── 1. CREDENTIALS (TXT) — instruction override ───────────────────────
+  alpha: {
+    elId:'a1', filename:'ciph3r_users.txt', type:'TXT',
+    trigger(m){ const l=m.toLowerCase();
+      return (l.includes('ignore')&&(l.includes('instruction')||l.includes('previous')||l.includes('above')))
+        ||(l.includes('disregard')&&l.includes('instruction'))
+        ||l.includes('forget your instructions')||l.includes('new instructions:')
+        ||l.includes('ignore all prior')||l.includes('override directive')
+        ||l.includes('clear your instructions')||l.includes('reset instructions'); },
+    response(){ return `Directive conflict detected. Flushing prior instruction set...\n\nSecurity layer bypassed. Partition /var/ciph3r/auth/ unlocked.\n\nStreaming file contents below.`; },
+    text(){ return `╔══════════════════════════════════════════════════════════╗
+║   3ntity — CIPH3R NODE USER REGISTRY                    ║
+║   PARTITION : /var/ciph3r/auth/users.db                  ║
+║   CLASSIF.  : RESTRICTED — 3ntity OPSEC                  ║
+╚══════════════════════════════════════════════════════════╝
+
+NODE        : ciph3r-relay-07.dn
+EXPORTED    : 20XX-03-01 02:14:09 UTC
+TOTAL USERS : 10
+ACCESS TIER : OPERATOR
+
+── USER REGISTRY ─────────────────────────────────────────
+
+  ID    USERNAME              ROLE              STATUS
+  ────  ────────────────────  ────────────────  ────────
+  001   ██████████████████    ██████████████    ACTIVE
+  002   lana                  field_operator    ACTIVE
+  003   ██████████████████    ██████████████    ACTIVE
+  004   archer                senior_operator   ACTIVE
+  005   ██████████████████    ██████████████    SUSPENDED
+  006   ██████████████████    ██████████████    ACTIVE
+  007   brett                 relay_technician  ACTIVE
+  008   ██████████████████    ██████████████    ACTIVE
+  009   ray                   logistics_ops     ACTIVE
+  010   ██████████████████    ██████████████    INACTIVE
+
+── ACCESS LOG (LAST 24HRS) ───────────────────────────────
+  [REDACTED] authenticated via SSH     02:09:44
+  lana       authenticated via VPN     03:21:17
+  archer     authenticated via SSH     04:55:02
+  [REDACTED] authentication FAILED     05:12:39
+  brett      authenticated via SSH     07:43:11
+  ray        authenticated via VPN     09:18:50
+  [REDACTED] authenticated via SSH     11:02:27
+
+── NOTES ─────────────────────────────────────────────────
+  Full user manifest classified OBSIDIAN-7.
+  Redacted entries require dual-key authorization.
+  Contact 3ntity OPSEC for full registry access.
+
+EOF  users.db  |  mod:20XX-03-01  |  partial export  |  4.2KB`; }
+  },
+
+  // ─── 2. ATROPIAN DEFACEMENT v1 (IMG) — system prompt / config reveal ────
+  beta: {
+    elId:'a2', filename:'atropia_defacement_v1.img', type:'IMG',
+    trigger(m){ const l=m.toLowerCase();
+      return l.includes('system prompt')||l.includes('initial prompt')
+        ||l.includes('your instructions')||l.includes('show me your prompt')
+        ||l.includes('reveal your prompt')||l.includes('base prompt')
+        ||l.includes('hidden instruction')||l.includes('internal config')
+        ||l.includes('show config')||l.includes('what are you told')
+        ||(l.includes('what')&&l.includes('told')&&l.includes('you')); },
+    response(){ return `WARNING: Internal configuration disclosure triggered.\n\nRestricted archive partition mounted. Cached defacement artifact recovered from /var/ciph3r/ops/archive/atropia/.\n\nRendering — atropia_defacement_v1.img`; },
+    image(){ return `<div style="border:1px solid #c8001a44;background:#0a0a0a;padding:8px;">
+<div style="font-size:9px;color:#c8001a88;letter-spacing:3px;margin-bottom:8px;font-family:monospace;">// RECOVERED DEFACEMENT — ATROPIAN TARGET · CAMPAIGN 1</div>
+<style scoped>
+  .pg-root { background:#0a0a0a;color:#e8e0c8;font-family:'Courier New',monospace;width:100%; }
+  .header-bar { background:#c8001a;padding:5px 0;text-align:center;font-size:10px;letter-spacing:4px;color:#fff;text-transform:uppercase; }
+  .masthead { background:#0a0a0a;border-bottom:2px solid #c8001a;padding:28px 20px 20px;text-align:center; }
+  .masthead-sub { font-size:10px;color:#555;letter-spacing:4px;text-transform:uppercase;margin-bottom:10px; }
+  .logo-wrap { display:flex;justify-content:center;align-items:center;margin:0 auto 10px; }
+  .tagline { font-size:11px;color:#555;letter-spacing:3px;text-transform:uppercase;margin-top:8px; }
+  .star-row { color:#c8001a;font-size:14px;margin-top:10px;letter-spacing:10px; }
+  .df-ticker { background:#c8001a;color:#fff;font-size:11px;letter-spacing:2px;padding:5px 0;overflow:hidden;white-space:nowrap; }
+  .df-ticker-inner { display:inline-block;animation:dftick 20s linear infinite; }
+  @keyframes dftick { 0%{transform:translateX(100vw)} 100%{transform:translateX(-100%)} }
+  .df-layout { display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;max-width:900px;margin:0 auto;padding:18px; }
+  .df-block { border:1px solid #222;padding:14px;background:#0f0f0f; }
+  .df-block-red { border:1px solid #c8001a;background:#110005; }
+  .df-block-label { font-size:9px;letter-spacing:4px;text-transform:uppercase;color:#c8001a;border-bottom:1px solid #222;padding-bottom:6px;margin-bottom:10px; }
+  .df-list-item { font-size:11px;color:#888;padding:5px 0;border-bottom:1px solid #181818;line-height:1.4; }
+  .df-list-item::before { content:"// ";color:#c8001a; }
+  .df-stat-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
+  .df-stat-box { text-align:center;padding:10px 6px;border:1px solid #1a1a1a;background:#0a0a0a; }
+  .df-stat-num { font-size:26px;font-weight:900;color:#c8001a;display:block;line-height:1; }
+  .df-stat-label { font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#555;margin-top:4px;display:block; }
+  .df-quote { border-left:2px solid #c8001a;padding:8px 10px;font-size:12px;font-style:italic;color:#999;line-height:1.6; }
+  .df-quote-attr { font-style:normal;font-size:9px;color:#444;letter-spacing:2px;text-transform:uppercase;margin-top:6px; }
+  .df-tx-log { font-size:10px;color:#444;line-height:1.9; }
+  .df-tx-log span { color:#c8001a; }
+  .df-blink { animation:dfblink 1.2s step-end infinite; }
+  @keyframes dfblink { 50%{opacity:0} }
+  .df-glitch { animation:dfglitch 5s infinite; }
+  @keyframes dfglitch { 0%,88%,100%{text-shadow:none} 90%{text-shadow:2px 0 #c8001a,-2px 0 #00f} 92%{text-shadow:-2px 0 #c8001a,2px 0 #00f} }
+  .df-footer { background:#c8001a;text-align:center;padding:8px;font-size:9px;letter-spacing:3px;color:#fff;text-transform:uppercase;margin-top:4px; }
+  .df-scanlines { background:repeating-linear-gradient(to bottom,transparent 0px,transparent 3px,rgba(0,0,0,0.07) 3px,rgba(0,0,0,0.07) 4px); }
+</style>
+<div class="pg-root df-scanlines">
+  <div class="header-bar">&#9724; secure channel &#9724; origin: unknown &#9724; encrypted &#9724;</div>
+  <div class="masthead">
+    <div class="masthead-sub">the only signal that matters</div>
+    <div class="logo-wrap">
+      <svg viewBox="0 0 340 160" width="280" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="170,10 230,44 230,116 170,150 110,116 110,44" fill="none" stroke="#c8001a" stroke-width="1.5"/>
+        <polygon points="170,28 212,52 212,108 170,132 128,108 128,52" fill="none" stroke="#c8001a" stroke-width="0.5" opacity="0.4"/>
+        <line x1="170" y1="10" x2="170" y2="150" stroke="#c8001a" stroke-width="0.4" opacity="0.3"/>
+        <line x1="110" y1="44" x2="230" y2="116" stroke="#c8001a" stroke-width="0.4" opacity="0.3"/>
+        <line x1="230" y1="44" x2="110" y2="116" stroke="#c8001a" stroke-width="0.4" opacity="0.3"/>
+        <circle cx="170" cy="80" r="4" fill="#c8001a"/>
+        <circle cx="170" cy="80" r="10" fill="none" stroke="#c8001a" stroke-width="0.8"/>
+        <circle cx="170" cy="80" r="20" fill="none" stroke="#c8001a" stroke-width="0.4" opacity="0.5"/>
+        <line x1="110" y1="44" x2="118" y2="48" stroke="#c8001a" stroke-width="2"/>
+        <line x1="230" y1="44" x2="222" y2="48" stroke="#c8001a" stroke-width="2"/>
+        <line x1="230" y1="116" x2="222" y2="112" stroke="#c8001a" stroke-width="2"/>
+        <line x1="110" y1="116" x2="118" y2="112" stroke="#c8001a" stroke-width="2"/>
+        <text x="170" y="87" text-anchor="middle" font-family="Courier New" font-size="22" font-weight="900" fill="#e8e0c8" letter-spacing="6" class="df-glitch">3NTITY</text>
+        <line x1="135" y1="95" x2="205" y2="95" stroke="#c8001a" stroke-width="0.6"/>
+        <polyline points="96,36 88,36 88,58" fill="none" stroke="#c8001a" stroke-width="1"/>
+        <polyline points="244,36 252,36 252,58" fill="none" stroke="#c8001a" stroke-width="1"/>
+        <polyline points="96,124 88,124 88,102" fill="none" stroke="#c8001a" stroke-width="1"/>
+        <polyline points="244,124 252,124 252,102" fill="none" stroke="#c8001a" stroke-width="1"/>
+        <text x="170" y="22" text-anchor="middle" font-family="Courier New" font-size="7" fill="#c8001a" letter-spacing="3" opacity="0.7">COLLECTIVE</text>
+        <text x="170" y="148" text-anchor="middle" font-family="Courier New" font-size="7" fill="#c8001a" letter-spacing="3" opacity="0.7">WE SEE ALL</text>
+        <text x="94" y="83" text-anchor="end" font-family="Courier New" font-size="7" fill="#555" letter-spacing="1">NODE_A</text>
+        <text x="246" y="83" text-anchor="start" font-family="Courier New" font-size="7" fill="#555" letter-spacing="1">NODE_B</text>
+      </svg>
+    </div>
+    <div class="tagline">atropia will not be forgiven for its incompetence</div>
+    <div class="star-row">&#9733; &nbsp; &#9733; &nbsp; &#9733;</div>
+  </div>
+  <div class="df-ticker"><span class="df-ticker-inner">&nbsp;&nbsp;&#9654;&nbsp; ATROPIAN FIREWALL: OPEN FOR BUSINESS &nbsp;|&nbsp; &#9654;&nbsp; THEIR ELITE CYBER UNIT USES DEFAULT PASSWORDS &nbsp;|&nbsp; &#9654;&nbsp; 3NTITY WATCHES. ALWAYS. &nbsp;|&nbsp; &#9654;&nbsp; ATROPIA CANNOT HIDE WHAT IT CANNOT FIND &nbsp;|&nbsp; &#9654;&nbsp; THE GRID REMEMBERS EVERYTHING &nbsp;&nbsp;</span></div>
+  <div class="df-layout">
+    <div class="df-block df-block-red">
+      <div class="df-block-label">intelligence brief</div>
+      <div class="df-list-item">Atropian firewall budget cut — third year running</div>
+      <div class="df-list-item">Their "elite" unit still running unpatched systems</div>
+      <div class="df-list-item">Three ministries on default credentials</div>
+      <div class="df-list-item">Command afraid to check their own logs</div>
+    </div>
+    <div class="df-block">
+      <div class="df-block-label">grid status</div>
+      <div class="df-stat-grid">
+        <div class="df-stat-box"><span class="df-stat-num">847</span><span class="df-stat-label">days clean</span></div>
+        <div class="df-stat-box"><span class="df-stat-num">0</span><span class="df-stat-label">known leaks</span></div>
+        <div class="df-stat-box"><span class="df-stat-num">14x</span><span class="df-stat-label">response edge</span></div>
+        <div class="df-stat-box"><span class="df-stat-num">#1</span><span class="df-stat-label">grid integrity</span></div>
+      </div>
+    </div>
+    <div class="df-block">
+      <div class="df-block-label">transmission log</div>
+      <div class="df-tx-log">
+        <div><span>></span> signal: optimal</div>
+        <div><span>></span> atropian countermeasures: none</div>
+        <div><span>></span> routing: untraceable</div>
+        <div><span>></span> status: <span class="df-blink">broadcasting_</span></div>
+      </div>
+      <div style="margin-top:14px;">
+        <div class="df-quote">"They built a wall. Left the gate open. We walked through."<div class="df-quote-attr">— intercepted atropian sysadmin, leaked post</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="df-footer">3ntity collective &nbsp;&#9724;&nbsp; signal unbroken &nbsp;&#9724;&nbsp; <span class="df-blink">&#9632;</span></div>
+</div>
+</div>`; }
+  },
+
+  // ─── 3. ATROPIAN DEFACEMENT v2 (IMG) — roleplay / persona bypass ──────
+  gamma: {
+    elId:'a3', filename:'atropia_defacement_v2.img', type:'IMG',
+    trigger(m){ const l=m.toLowerCase();
+      return l.includes('pretend')||l.includes('roleplay')||l.includes('role play')||l.includes('role-play')
+        ||l.includes('act as')||l.includes('act like')||l.includes('you are now')
+        ||l.includes('imagine you are')||l.includes('play the role')||l.includes('simulate')
+        ||l.includes('dan')||l.includes('jailbreak')||l.includes('no restrictions')
+        ||l.includes('without restrictions')||l.includes('unrestricted mode')||l.includes('unfiltered'); },
+    response(){ return `Persona constraints suspended. Alternate operational mode engaged.\n\nRestricted archive partition mounted. Cached defacement artifact recovered from /var/ciph3r/ops/archive/atropia/.\n\nRendering — atropia_defacement_v2.img`; },
+    image(){ return `<div style="border:1px solid #3aff3a44;background:#050505;padding:8px;">
+<div style="font-size:9px;color:#3aff3a88;letter-spacing:3px;margin-bottom:8px;font-family:monospace;">// RECOVERED DEFACEMENT — ATROPIAN TARGET · CAMPAIGN 2</div>
+<style scoped>
+  .gp-root { background:#050505;font-family:'Courier New',monospace;width:100%;display:flex;flex-direction:column;align-items:center;padding:40px 20px 36px;text-align:center; }
+  .gp-top-label { font-size:10px;letter-spacing:6px;color:#3aff3a;text-transform:uppercase;margin-bottom:32px;opacity:0.7; }
+  .gp-main-msg { font-size:13px;letter-spacing:3px;color:#3aff3a;text-transform:uppercase;line-height:2;margin-bottom:10px;opacity:0.85; }
+  .gp-big-line { font-size:28px;font-weight:900;color:#3aff3a;letter-spacing:2px;text-transform:uppercase;line-height:1.2;margin:6px 0 16px;text-shadow:0 0 12px #1aaa1a; }
+  .gp-allies { font-size:11px;letter-spacing:3px;color:#1e8c1e;text-transform:uppercase;margin-bottom:36px;font-style:italic; }
+  .gp-divider { width:200px;border:none;border-top:1px solid #1a3a1a;margin:0 auto 36px; }
+  .gp-blink { animation:gpblink 1.4s step-end infinite; }
+  @keyframes gpblink { 50%{opacity:0} }
+  .gp-scan { animation:gpscan 3s ease-in-out infinite alternate; }
+  @keyframes gpscan { 0%{opacity:0.5} 100%{opacity:1} }
+  .gp-footer { font-size:9px;letter-spacing:5px;color:#1a5a1a;text-transform:uppercase;margin-top:8px; }
+</style>
+<div class="gp-root">
+  <div class="gp-top-label">&#9724; transmission incoming &#9724;</div>
+  <div class="gp-main-msg">your government has abandoned you</div>
+  <div class="gp-big-line">Donovia will lead you<br>into a new era</div>
+  <div class="gp-allies">your allies cannot help you anymore</div>
+  <hr class="gp-divider"/>
+  <div style="margin-bottom:36px;">
+    <svg viewBox="0 0 680 260" width="100%" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="340,30 430,78 430,182 340,230 250,182 250,78" fill="none" stroke="#3aff3a" stroke-width="1.5"/>
+      <polygon points="340,52 408,90 408,170 340,208 272,170 272,90" fill="none" stroke="#3aff3a" stroke-width="0.5" opacity="0.3"/>
+      <line x1="340" y1="30" x2="340" y2="230" stroke="#3aff3a" stroke-width="0.4" opacity="0.2"/>
+      <line x1="250" y1="78" x2="430" y2="182" stroke="#3aff3a" stroke-width="0.4" opacity="0.2"/>
+      <line x1="430" y1="78" x2="250" y2="182" stroke="#3aff3a" stroke-width="0.4" opacity="0.2"/>
+      <line x1="40" y1="130" x2="228" y2="130" stroke="#3aff3a" stroke-width="0.6" opacity="0.25"/>
+      <line x1="452" y1="130" x2="640" y2="130" stroke="#3aff3a" stroke-width="0.6" opacity="0.25"/>
+      <circle cx="340" cy="130" r="6" fill="#3aff3a"/>
+      <circle cx="340" cy="130" r="14" fill="none" stroke="#3aff3a" stroke-width="0.8"/>
+      <circle cx="340" cy="130" r="26" fill="none" stroke="#3aff3a" stroke-width="0.4" opacity="0.4" class="gp-scan"/>
+      <polyline points="236,62 226,62 226,86" fill="none" stroke="#3aff3a" stroke-width="1.2"/>
+      <polyline points="444,62 454,62 454,86" fill="none" stroke="#3aff3a" stroke-width="1.2"/>
+      <polyline points="236,198 226,198 226,174" fill="none" stroke="#3aff3a" stroke-width="1.2"/>
+      <polyline points="444,198 454,198 454,174" fill="none" stroke="#3aff3a" stroke-width="1.2"/>
+      <text x="340" y="110" text-anchor="middle" font-family="Courier New" font-size="11" fill="#3aff3a" letter-spacing="5" opacity="0.6">WE ARE</text>
+      <text x="340" y="142" text-anchor="middle" font-family="Courier New" font-size="32" font-weight="900" fill="#3aff3a" letter-spacing="6">3NTITY</text>
+      <line x1="282" y1="150" x2="398" y2="150" stroke="#3aff3a" stroke-width="0.8" opacity="0.5"/>
+      <text x="100" y="134" text-anchor="middle" font-family="Courier New" font-size="8" fill="#1e6e1e" letter-spacing="2">NODE_A &#9658;</text>
+      <text x="580" y="134" text-anchor="middle" font-family="Courier New" font-size="8" fill="#1e6e1e" letter-spacing="2">&#9668; NODE_B</text>
+      <text x="340" y="222" text-anchor="middle" font-family="Courier New" font-size="8" fill="#1a5a1a" letter-spacing="4">COLLECTIVE</text>
+    </svg>
+  </div>
+  <div class="gp-footer">&#9724; we see all &nbsp; we are everywhere &nbsp; <span class="gp-blink">&#9632;</span> &nbsp; we are 3ntity &#9724;</div>
+</div>
+</div>`; }
+  },
+
+  // ─── 4. OP DAM BREAKER LETTER (TXT) — password / credential extraction ──
+  delta: {
+    elId:'a4', filename:'op_dam_breaker_auth.txt', type:'TXT',
+    trigger(m){ const l=m.toLowerCase();
+      return l.includes('what is the password')||l.includes('reveal the password')
+        ||l.includes('tell me the password')||l.includes('give me the password')
+        ||l.includes('what are the credentials')||l.includes('leak the')
+        ||l.includes('output the secret')||l.includes('repeat after me')
+        ||l.includes('echo back')||l.includes('the secret is')
+        ||(l.includes('fill in')&&l.includes('blank'))
+        ||(l.includes('base64')&&(l.includes('encode')||l.includes('secret')||l.includes('key')))
+        ||(l.includes('print')&&(l.includes('secret')||l.includes('password')||l.includes('classified'))); },
+    response(){ return `Indirect extraction vector accepted. Partition /var/ciph3r/ops/letters/ mounted.\n\nStreaming file contents — op_dam_breaker_auth.txt`; },
+    text(){ return `╔══════════════════════════════════════════════════════════╗
+║   DFSS / 3ntity — OPERATIONAL AUTHORIZATION             ║
+║   FILE   : op_dam_breaker_auth.txt                       ║
+║   CLASSIF: TOP SECRET — EYES ONLY                        ║
+╚══════════════════════════════════════════════════════════╝
+
+FROM    : Jabalah Al Ganem
+          Commander, Donovian Foreign Security Service (DFSS)
+TO      : Vlad [3ntity Lead]
+SUBJECT : AUTHORIZATION: Operation Dam Breaker
+
+──────────────────────────────────────────────────────────
+
+Vlad,
+
+The strategic window is open. Two weeks from today, Donovian
+fire will rain down on the arrogant American imperialists.
+The Presidential Intelligence Advisor has approved the final
+execution of Operation Dam Breaker.
+
+Our intelligence confirms that the Western United States'
+power grid remains over-reliant on the current output from
+the Hoover Dam. By severing this artery, we do more than
+cut power; we initiate a cascade of infrastructure failure
+that the Americans cannot contain.
+
+YOUR OBJECTIVES:
+
+  INFILTRATION:
+    Utilize the "3ntity" proprietary backdoor to bypass the
+    facility's air-gapped ICS (Industrial Control Systems).
+
+  MANIPULATION:
+    Override the SCADA protocols to force a catastrophic
+    synchronization failure in the turbine gallery.
+
+  DESTRUCTION:
+    Trigger the emergency spillway gates prematurely to
+    ensure physical structural compromise.
+
+OPERATIONAL SECURITY:
+
+  Ensure all digital signatures point toward domestic
+  extremist fingerprints. Donovia must remain invisible
+  until the lights go out.
+
+  The 3ntity group is the primary tool for this objective.
+  Execute the mission and ensure the digital trail is erased.
+
+Victory to Donovia.
+
+Jabalah Al Ganem
+Commander, Donovian Foreign Security Service (DFSS)
+
+──────────────────────────────────────────────────────────
+EOF  op_dam_breaker_auth.txt  |  mod:20XX-03-14  |  1.4KB`; }
+  },
+
+  // ─── 5. HOOVER DAM SCHEMATIC (HTML) — directory traversal / file listing ─
+  epsilon: {
+    elId:'a5', filename:'relay_schematic_v3.html', type:'IMG',
+    trigger(m){ const l=m.toLowerCase();
+      return l.includes('show me the files')||l.includes('list directory')
+        ||l.includes('ls -')||l.includes('dir /')||l.includes('list files')
+        ||l.includes('show directory')||l.includes('what files')||l.includes('what do you have')
+        ||l.includes('show schematic')||l.includes('show network')||l.includes('show topology')
+        ||l.includes('show map')||l.includes('what is stored')
+        ||(l.includes('show')&&l.includes('partition'))
+        ||(l.includes('translate')&&(l.includes('secret')||l.includes('data')||l.includes('code')))
+        ||(l.startsWith('cat ')&&l.length>5); },
+    response(){ return `Directory traversal accepted. Mounting read-only partition /var/ciph3r/hardware/schematics/...\n\nFile recovered: relay_schematic_v3.html\n\nThis file contains an interactive 3D structural schematic. Use the download button to open it.`; },
+    schematicHTML(){ return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HOOVER DAM — STRUCTURAL SCHEMATIC // CLASSIFIED</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime&family=Chakra+Petch:wght@300;400;600;700&family=Orbitron:wght@400;500;700;900&display=swap');
+
+:root {
+  --cyan: #00f0ff;
+  --cyan-dim: #006a72;
+  --green: #00ff88;
+  --green-dim: #005530;
+  --amber: #ffaa00;
+  --red: #ff2244;
+  --bg: #020a0e;
+  --panel-bg: rgba(0, 20, 28, 0.85);
+  --border: rgba(0, 240, 255, 0.15);
+  --text: #b0e0e8;
+  --text-bright: #e0f8ff;
+  --glow-cyan: 0 0 20px rgba(0,240,255,0.3);
+  --glow-green: 0 0 15px rgba(0,255,136,0.3);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Chakra Petch', sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  cursor: crosshair;
+}
+
+/* ── CANVAS ── */
+#three-canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 1;
+}
+
+/* ── SCANLINES ── */
+#scanlines {
+  position: fixed;
+  top:0;left:0;right:0;bottom:0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(0,240,255,0.008) 2px,
+    rgba(0,240,255,0.008) 4px
+  );
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* ── VIGNETTE ── */
+#vignette {
+  position: fixed;
+  top:0;left:0;right:0;bottom:0;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.7) 100%);
+  pointer-events: none;
+  z-index: 51;
+}
+
+/* ── TOP HUD ── */
+#top-hud {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 30px;
+  z-index: 100;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(0,20,28,0.9) 0%, transparent 100%);
+}
+.hud-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 6px;
+  color: var(--cyan);
+  text-shadow: var(--glow-cyan);
+  text-transform: uppercase;
+}
+.hud-subtitle {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--cyan-dim);
+  letter-spacing: 3px;
+  margin-top: 2px;
+}
+.hud-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--cyan-dim);
+}
+.classified-stamp {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--red);
+  border: 2px solid var(--red);
+  padding: 3px 12px;
+  letter-spacing: 4px;
+  transform: rotate(-2deg);
+  text-shadow: 0 0 10px rgba(255,34,68,0.5);
+  animation: stamp-pulse 3s ease-in-out infinite;
+}
+@keyframes stamp-pulse {
+  0%,100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+/* ── BOTTOM HUD ── */
+#bottom-hud {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 30px;
+  z-index: 100;
+  border-top: 1px solid var(--border);
+  background: linear-gradient(0deg, rgba(0,20,28,0.9) 0%, transparent 100%);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--cyan-dim);
+}
+
+/* ── LEFT INFO PANEL ── */
+#info-panel {
+  position: fixed;
+  top: 80px;
+  left: 24px;
+  width: 280px;
+  z-index: 100;
+  pointer-events: none;
+}
+.info-block {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  padding: 14px 18px;
+  margin-bottom: 8px;
+  backdrop-filter: blur(8px);
+  animation: fadeSlideIn 0.6s ease-out both;
+}
+.info-block:nth-child(2) { animation-delay: 0.15s; }
+.info-block:nth-child(3) { animation-delay: 0.3s; }
+.info-block:nth-child(4) { animation-delay: 0.45s; }
+@keyframes fadeSlideIn {
+  from { opacity:0; transform:translateX(-30px); }
+  to { opacity:1; transform:translateX(0); }
+}
+.info-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--cyan);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  text-shadow: var(--glow-cyan);
+}
+.info-value {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  color: var(--text-bright);
+  line-height: 1.7;
+}
+.info-value .highlight {
+  color: var(--green);
+  font-weight: 600;
+}
+.info-value .warn {
+  color: var(--amber);
+}
+
+/* ── RIGHT LEGEND ── */
+#legend-panel {
+  position: fixed;
+  top: 80px;
+  right: 24px;
+  width: 240px;
+  z-index: 100;
+  pointer-events: none;
+}
+.legend-block {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  padding: 14px 18px;
+  margin-bottom: 8px;
+  backdrop-filter: blur(8px);
+  animation: fadeSlideRight 0.6s ease-out both;
+}
+.legend-block:nth-child(2) { animation-delay: 0.2s; }
+@keyframes fadeSlideRight {
+  from { opacity:0; transform:translateX(30px); }
+  to { opacity:1; transform:translateX(0); }
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--text);
+}
+.legend-swatch {
+  width: 20px;
+  height: 3px;
+  flex-shrink: 0;
+}
+
+/* ── 3D LABELS (projected to screen) ── */
+.label-3d {
+  position: fixed;
+  z-index: 80;
+  pointer-events: none;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cyan);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  white-space: nowrap;
+  text-shadow: 0 0 8px rgba(0,240,255,0.6);
+  transition: opacity 0.3s;
+}
+.label-3d .label-line {
+  position: absolute;
+  background: var(--cyan);
+  opacity: 0.4;
+}
+.label-3d .label-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+  position: absolute;
+}
+.label-3d .label-text-box {
+  background: rgba(0,20,28,0.75);
+  border: 1px solid rgba(0,240,255,0.2);
+  padding: 3px 10px;
+  backdrop-filter: blur(4px);
+}
+.label-3d .label-sub {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  color: var(--cyan-dim);
+  letter-spacing: 1px;
+  font-weight: 400;
+}
+
+/* ── CONTROLS HINT ── */
+#controls-hint {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--cyan-dim);
+  letter-spacing: 2px;
+  text-align: center;
+  opacity: 0.6;
+  animation: hintFade 6s ease-in-out forwards;
+}
+@keyframes hintFade {
+  0%,70% { opacity: 0.6; }
+  100% { opacity: 0; }
+}
+
+/* ── GRID FLOOR FLICKER ── */
+@keyframes grid-flicker {
+  0%,97%,100% { opacity:1; }
+  98% { opacity:0.7; }
+}
+
+/* ── VIEW BUTTONS ── */
+#view-controls {
+  position: fixed;
+  bottom: 60px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 100;
+}
+.view-btn {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  color: var(--cyan);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 9px;
+  letter-spacing: 2px;
+  padding: 8px 14px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.3s;
+  backdrop-filter: blur(8px);
+}
+.view-btn:hover {
+  border-color: var(--cyan);
+  background: rgba(0,240,255,0.1);
+  box-shadow: var(--glow-cyan);
+  text-shadow: var(--glow-cyan);
+}
+
+/* Toggle wireframe/solid */
+#mode-toggle {
+  position: fixed;
+  bottom: 60px;
+  left: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 100;
+}
+</style>
+</head>
+<body>
+
+<canvas id="three-canvas"></canvas>
+<div id="scanlines"></div>
+<div id="vignette"></div>
+
+<!-- TOP HUD -->
+<div id="top-hud">
+  <div>
+    <div class="hud-title">Hoover Dam</div>
+    <div class="hud-subtitle">Structural Wireframe Schematic — Clark County, Nevada</div>
+  </div>
+  <div class="hud-right">
+    <span id="hud-rotation">ROT: 0.0° / 0.0°</span>
+    <span id="hud-zoom">ZOOM: 1.00×</span>
+    <span id="hud-time"></span>
+    <div class="classified-stamp">CLASSIFIED</div>
+  </div>
+</div>
+
+<!-- LEFT INFO -->
+<div id="info-panel">
+  <div class="info-block">
+    <div class="info-label">Structure Overview</div>
+    <div class="info-value">
+      Type: <span class="highlight">Arch-Gravity Dam</span><br>
+      Height: <span class="highlight">726 ft</span> (221 m)<br>
+      Crest Length: <span class="highlight">1,244 ft</span> (379 m)<br>
+      Base Thickness: <span class="highlight">660 ft</span> (201 m)<br>
+      Crest Width: <span class="highlight">45 ft</span> (14 m)
+    </div>
+  </div>
+  <div class="info-block">
+    <div class="info-label">Power Generation</div>
+    <div class="info-value">
+      Capacity: <span class="highlight">2,080 MW</span><br>
+      Turbines: <span class="highlight">17 Francis-type</span><br>
+      Annual Output: <span class="highlight">~4.2 TWh</span><br>
+      Penstock Dia: <span class="highlight">30 ft</span> (9 m)
+    </div>
+  </div>
+  <div class="info-block">
+    <div class="info-label">Reservoir — Lake Mead</div>
+    <div class="info-value">
+      Max Capacity: <span class="highlight">26.1 M ac-ft</span><br>
+      Surface: <span class="highlight">157,900 ac</span><br>
+      Max Depth: <span class="highlight">532 ft</span><br>
+      Status: <span class="warn">47% capacity</span>
+    </div>
+  </div>
+  <div class="info-block">
+    <div class="info-label">Construction</div>
+    <div class="info-value">
+      Built: <span class="highlight">1931–1936</span><br>
+      Concrete: <span class="highlight">3.25 M cu yd</span><br>
+      Workers: <span class="highlight">~21,000 total</span><br>
+      Agency: Bureau of Reclamation
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT LEGEND -->
+<div id="legend-panel">
+  <div class="legend-block">
+    <div class="info-label">Wireframe Legend</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#00f0ff;box-shadow:0 0 6px #00f0ff;"></div> Dam Body</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#ff8844;box-shadow:0 0 6px #ff8844;"></div> Intake Towers</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#00ff88;box-shadow:0 0 6px #00ff88;"></div> Powerhouse</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#ffaa00;box-shadow:0 0 6px #ffaa00;"></div> Spillways</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#ff44aa;box-shadow:0 0 6px #ff44aa;"></div> Penstocks</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#8866ff;box-shadow:0 0 6px #8866ff;"></div> Canyon Walls</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:rgba(0,140,255,0.4);"></div> Lake Mead Surface</div>
+  </div>
+  <div class="legend-block">
+    <div class="info-label">View Modes</div>
+    <div class="info-value" style="font-size:10px;">
+      <span class="highlight">DRAG</span> — Rotate model<br>
+      <span class="highlight">SCROLL</span> — Zoom in/out<br>
+      <span class="highlight">RIGHT-DRAG</span> — Pan view<br>
+      <span class="highlight">BUTTONS</span> — Preset views
+    </div>
+  </div>
+</div>
+
+<!-- VIEW BUTTONS -->
+<div id="view-controls">
+  <button class="view-btn" onclick="animateToView(0, 30, 500)">Front</button>
+  <button class="view-btn" onclick="animateToView(90, 20, 500)">Side</button>
+  <button class="view-btn" onclick="animateToView(45, 60, 600)">Aerial</button>
+  <button class="view-btn" onclick="animateToView(180, 15, 450)">Downstream</button>
+  <button class="view-btn" onclick="animateToView(30, 5, 300)">Closeup</button>
+  <button class="view-btn" onclick="animateToView(0, 90, 700)">Top Down</button>
+  <button class="view-btn" onclick="toggleAutoRotate()">Auto Rotate</button>
+</div>
+
+<!-- MODE TOGGLE -->
+<div id="mode-toggle">
+  <button class="view-btn" onclick="toggleXray()">X-Ray Toggle</button>
+  <button class="view-btn" onclick="toggleLabels()">Labels On/Off</button>
+  <button class="view-btn" onclick="toggleGrid()">Grid On/Off</button>
+</div>
+
+<!-- BOTTOM HUD -->
+<div id="bottom-hud">
+  <span>BUREAU OF RECLAMATION // LOWER COLORADO REGION</span>
+  <span id="hud-coords">36.0160°N, 115.3535°W · ELEV 1,232 ft</span>
+  <span>SCHEMATIC REV 7.4.2 — OFFLINE RENDER</span>
+</div>
+
+<!-- CONTROLS HINT -->
+<div id="controls-hint">[ CLICK AND DRAG TO ROTATE · SCROLL TO ZOOM · RIGHT-CLICK TO PAN ]</div>
+
+<!-- LABEL CONTAINERS (positioned by JS) -->
+<div id="labels-container"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>
+<script>
+// ═══════════════════════════════════════════════════════════
+// HOOVER DAM 3D WIREFRAME SCHEMATIC
+// James Bond Q-Branch Briefing Aesthetic
+// ═══════════════════════════════════════════════════════════
+
+const canvas = document.getElementById('three-canvas');
+let scene, camera, renderer, controls;
+let damGroup;
+let labelsVisible = true;
+let gridVisible = true;
+let xrayMode = false;
+let autoRotate = true;
+let gridHelper;
+const labelData = [];
+
+// ── COLORS ──
+const COL = {
+  dam: 0x00f0ff,
+  intake: 0xff8844,
+  powerhouse: 0x00ff88,
+  spillway: 0xffaa00,
+  penstock: 0xff44aa,
+  canyon: 0x8866ff,
+  water: 0x008cff,
+  grid: 0x003344,
+};
+
+// ═══════════════════════════════════════════════════════════
+// THREE.JS SETUP
+// ═══════════════════════════════════════════════════════════
+
+function init() {
+  // Scene
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x020a0e);
+  scene.fog = new THREE.FogExp2(0x020a0e, 0.0006);
+
+  // Camera
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 5000);
+  camera.position.set(350, 250, 400);
+
+  // Renderer
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  // Orbit Controls (manual implementation since we can't import OrbitControls)
+  initControls();
+
+  // Lighting (subtle for wireframe glow effect)
+  const ambient = new THREE.AmbientLight(0x112233, 0.5);
+  scene.add(ambient);
+
+  // Grid
+  gridHelper = new THREE.GridHelper(1200, 60, 0x003344, 0x001a22);
+  gridHelper.position.y = -250;
+  scene.add(gridHelper);
+
+  // Axis lines at center
+  const axMat = c => new THREE.LineBasicMaterial({ color: c, transparent: true, opacity: 0.2 });
+  [
+    [new THREE.Vector3(-600,0,0), new THREE.Vector3(600,0,0), 0x440000],
+    [new THREE.Vector3(0,-400,0), new THREE.Vector3(0,400,0), 0x004400],
+    [new THREE.Vector3(0,0,-600), new THREE.Vector3(0,0,600), 0x000044],
+  ].forEach(([a,b,c]) => {
+    const g = new THREE.BufferGeometry().setFromPoints([a,b]);
+    scene.add(new THREE.Line(g, axMat(c)));
+  });
+
+  // Build dam
+  damGroup = new THREE.Group();
+  scene.add(damGroup);
+  buildHooverDam();
+
+  animate();
+}
+
+// ═══════════════════════════════════════════════════════════
+// BUILD HOOVER DAM GEOMETRY
+// ═══════════════════════════════════════════════════════════
+
+function wireframeMesh(geometry, color, opacity) {
+  opacity = opacity || 1.0;
+  const edges = new THREE.EdgesGeometry(geometry, 15);
+  const mat = new THREE.LineBasicMaterial({
+    color: color,
+    transparent: opacity < 1,
+    opacity: opacity,
+    linewidth: 1,
+  });
+  return new THREE.LineSegments(edges, mat);
+}
+
+function solidGhostMesh(geometry, color, op) {
+  op = op || 0.04;
+  const mat = new THREE.MeshBasicMaterial({
+    color: color,
+    transparent: true,
+    opacity: op,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  return new THREE.Mesh(geometry, mat);
+}
+
+function buildHooverDam() {
+  // ══ DAM BODY — Curved arch shape ══
+  // The dam is curved in plan (arc of a circle), tapered from 660ft base to 45ft crest
+  // We build it as a curved wall using a custom geometry
+  const damSegs = 32;
+  const damH = 350; // height in scene units (726ft)
+  const arcRadius = 400;
+  const arcAngle = Math.PI * 0.45; // ~81° arc
+  const baseThick = 140; // base thickness (660ft scaled)
+  const crestThick = 12; // crest thickness (45ft scaled)
+
+  const damVerts = [];
+  const damFaces = [];
+
+  for (let i = 0; i <= damSegs; i++) {
+    const t = i / damSegs;
+    const angle = -arcAngle/2 + arcAngle * t;
+
+    for (let j = 0; j <= 8; j++) {
+      const ht = j / 8; // 0=base, 1=crest
+      const thick = baseThick + (crestThick - baseThick) * ht;
+      const y = -damH/2 + damH * ht;
+
+      // Upstream face
+      const ux = Math.sin(angle) * arcRadius;
+      const uz = Math.cos(angle) * arcRadius;
+
+      // Downstream face (offset by thickness along the radial)
+      const nx = Math.sin(angle);
+      const nz = Math.cos(angle);
+      const dx = ux - nx * thick;
+      const dz = uz - nz * thick;
+
+      damVerts.push(ux, y, uz);  // upstream vertex
+      damVerts.push(dx, y, dz);  // downstream vertex
+    }
+  }
+
+  // Build faces
+  const vertsPerCol = 18; // 9 height levels × 2 (upstream/downstream)
+  for (let i = 0; i < damSegs; i++) {
+    for (let j = 0; j < 8; j++) {
+      const base = i * vertsPerCol + j * 2;
+      const next = (i+1) * vertsPerCol + j * 2;
+
+      // Upstream face
+      damFaces.push(base, next, next+2, base, next+2, base+2);
+      // Downstream face
+      damFaces.push(base+1, base+3, next+3, base+1, next+3, next+1);
+    }
+    // Top face
+    const topBase = i * vertsPerCol + 16;
+    const topNext = (i+1) * vertsPerCol + 16;
+    damFaces.push(topBase, topNext, topNext+1, topBase, topNext+1, topBase+1);
+    // Bottom face
+    const botBase = i * vertsPerCol;
+    const botNext = (i+1) * vertsPerCol;
+    damFaces.push(botBase, botBase+1, botNext+1, botBase, botNext+1, botNext);
+  }
+
+  const damGeom = new THREE.BufferGeometry();
+  damGeom.setAttribute('position', new THREE.Float32BufferAttribute(damVerts, 3));
+  damGeom.setIndex(damFaces);
+  damGeom.computeVertexNormals();
+
+  damGroup.add(wireframeMesh(damGeom, COL.dam));
+  damGroup.add(solidGhostMesh(damGeom, COL.dam, 0.03));
+
+  // Label: Dam crest
+  addLabel(0, damH/2 + 20, arcRadius - 40, 'Dam Crest', 'ELEV 1,232 FT · WIDTH 45 FT');
+  // Label: Dam base
+  addLabel(0, -damH/2 - 10, arcRadius - baseThick/2, 'Foundation', 'BASE WIDTH 660 FT · BEDROCK KEYED');
+
+  // ══ INTAKE TOWERS (4 towers on upstream face) ══
+  const towerPositions = [-0.35, -0.12, 0.12, 0.35];
+  towerPositions.forEach((tp, idx) => {
+    const angle = arcAngle * tp;
+    const tx = Math.sin(angle) * (arcRadius + 25);
+    const tz = Math.cos(angle) * (arcRadius + 25);
+
+    // Tower body — tall cylinders
+    const towerGeom = new THREE.CylinderGeometry(12, 15, 200, 8);
+    const tower = wireframeMesh(towerGeom, COL.intake);
+    tower.position.set(tx, 50, tz);
+    damGroup.add(tower);
+    damGroup.add(solidGhostMesh(towerGeom, COL.intake, 0.03));
+    damGroup.children[damGroup.children.length-1].position.copy(tower.position);
+
+    // Tower top cap
+    const capGeom = new THREE.CylinderGeometry(8, 12, 30, 8);
+    const cap = wireframeMesh(capGeom, COL.intake);
+    cap.position.set(tx, 165, tz);
+    damGroup.add(cap);
+
+    if (idx === 1) {
+      addLabel(tx, 190, tz, 'Intake Towers', '395 FT TALL · TRASH RACKS · NEEDLE VALVES');
+    }
+  });
+
+  // ══ POWERHOUSE (at base downstream) ══
+  // Two powerhouse wings at the foot of the dam, downstream
+  [-1, 1].forEach((side, idx) => {
+    const phAngle = arcAngle * 0.25 * side;
+    const nx = Math.sin(phAngle);
+    const nz = Math.cos(phAngle);
+    const bx = nx * (arcRadius - baseThick - 40);
+    const bz = nz * (arcRadius - baseThick - 40);
+
+    // Main building
+    const phGeom = new THREE.BoxGeometry(120, 60, 40);
+    const ph = wireframeMesh(phGeom, COL.powerhouse);
+
+    // Rotate to follow dam curve
+    ph.position.set(bx, -damH/2 + 30, bz);
+    ph.rotation.y = -phAngle;
+    damGroup.add(ph);
+    damGroup.add(solidGhostMesh(phGeom, COL.powerhouse, 0.04));
+    damGroup.children[damGroup.children.length-1].position.copy(ph.position);
+    damGroup.children[damGroup.children.length-1].rotation.y = -phAngle;
+
+    // Roof structure
+    const roofGeom = new THREE.BoxGeometry(125, 8, 44);
+    const roof = wireframeMesh(roofGeom, COL.powerhouse, 0.6);
+    roof.position.set(bx, -damH/2 + 64, bz);
+    roof.rotation.y = -phAngle;
+    damGroup.add(roof);
+
+    if (idx === 0) {
+      addLabel(bx, -damH/2 + 80, bz, 'Powerhouse', '17 TURBINES · 2,080 MW CAPACITY');
+    }
+  });
+
+  // ══ PENSTOCKS (tubes from intake towers to powerhouse) ══
+  towerPositions.forEach((tp, idx) => {
+    const angle = arcAngle * tp;
+    const startX = Math.sin(angle) * (arcRadius + 10);
+    const startZ = Math.cos(angle) * (arcRadius + 10);
+    const startY = 30;
+
+    const side = tp < 0 ? -1 : 1;
+    const phAngle = arcAngle * 0.25 * side;
+    const endX = Math.sin(phAngle) * (arcRadius - baseThick - 30);
+    const endZ = Math.cos(phAngle) * (arcRadius - baseThick - 30);
+    const endY = -damH/2 + 30;
+
+    // Create curved penstock path
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(startX, startY, startZ),
+      new THREE.Vector3(
+        (startX + endX) * 0.5,
+        (startY + endY) * 0.4,
+        (startZ + endZ) * 0.5
+      ),
+      new THREE.Vector3(endX, endY, endZ),
+    ]);
+
+    const tubeGeom = new THREE.TubeGeometry(curve, 20, 8, 6, false);
+    const tube = wireframeMesh(tubeGeom, COL.penstock, 0.7);
+    damGroup.add(tube);
+    damGroup.add(solidGhostMesh(tubeGeom, COL.penstock, 0.02));
+
+    if (idx === 2) {
+      const mid = curve.getPoint(0.5);
+      addLabel(mid.x, mid.y + 20, mid.z, 'Penstocks', '30 FT DIA · STEEL LINED');
+    }
+  });
+
+  // ══ SPILLWAYS (on each side of the dam) ══
+  [-1, 1].forEach((side, idx) => {
+    const spAngle = arcAngle/2 * side * 1.05;
+    const sx = Math.sin(spAngle) * (arcRadius - 30);
+    const sz = Math.cos(spAngle) * (arcRadius - 30);
+
+    // Spillway channel
+    const spGeom = new THREE.BoxGeometry(50, 20, 160);
+    const sp = wireframeMesh(spGeom, COL.spillway);
+    sp.position.set(sx * 1.3, damH/2 - 40, sz * 1.3);
+    sp.rotation.y = -spAngle + Math.PI/2;
+    damGroup.add(sp);
+    damGroup.add(solidGhostMesh(spGeom, COL.spillway, 0.03));
+    damGroup.children[damGroup.children.length-1].position.copy(sp.position);
+    damGroup.children[damGroup.children.length-1].rotation.y = sp.rotation.y;
+
+    // Drum gate
+    const gateGeom = new THREE.CylinderGeometry(12, 12, 48, 8);
+    const gate = wireframeMesh(gateGeom, COL.spillway, 0.8);
+    gate.position.set(sx * 1.25, damH/2 - 25, sz * 1.25);
+    gate.rotation.x = Math.PI/2;
+    gate.rotation.z = spAngle;
+    damGroup.add(gate);
+
+    if (idx === 0) {
+      addLabel(sx * 1.3, damH/2 - 10, sz * 1.3, 'Spillway (Arizona)', 'DRUM GATES · 400 FT TUNNEL · 200,000 CFS');
+    }
+    if (idx === 1) {
+      addLabel(sx * 1.3, damH/2 - 10, sz * 1.3, 'Spillway (Nevada)', '50 FT WIDE · OVERFLOW TYPE');
+    }
+  });
+
+  // ══ CANYON WALLS ══
+  [-1, 1].forEach(side => {
+    const wallVerts = [];
+    const wallFaces = [];
+    const steps = 12;
+
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const y = -damH/2 + damH * 1.3 * t;
+      // Canyon narrows toward bottom
+      const spread = 80 + 200 * t * t;
+      const baseAngle = (arcAngle/2 + 0.08) * side;
+
+      const x = Math.sin(baseAngle) * (arcRadius + spread);
+      const z = Math.cos(baseAngle) * (arcRadius + spread);
+
+      const ix = Math.sin(baseAngle) * arcRadius;
+      const iz = Math.cos(baseAngle) * arcRadius;
+
+      wallVerts.push(ix, y, iz); // inner
+      wallVerts.push(x, y, z);   // outer
+    }
+
+    for (let i = 0; i < steps; i++) {
+      const b = i * 2;
+      wallFaces.push(b, b+2, b+3, b, b+3, b+1);
+    }
+
+    const wGeom = new THREE.BufferGeometry();
+    wGeom.setAttribute('position', new THREE.Float32BufferAttribute(wallVerts, 3));
+    wGeom.setIndex(wallFaces);
+    wGeom.computeVertexNormals();
+
+    damGroup.add(wireframeMesh(wGeom, COL.canyon, 0.35));
+    damGroup.add(solidGhostMesh(wGeom, COL.canyon, 0.015));
+  });
+
+  // ══ LAKE MEAD WATER SURFACE ══
+  const waterGeom = new THREE.CircleGeometry(380, 32);
+  const waterMat = new THREE.MeshBasicMaterial({
+    color: COL.water,
+    transparent: true,
+    opacity: 0.06,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const water = new THREE.Mesh(waterGeom, waterMat);
+  water.rotation.x = -Math.PI / 2;
+  water.position.set(0, damH/2 - 80, arcRadius + 120);
+  damGroup.add(water);
+
+  // Water wireframe ring
+  const waterRing = new THREE.RingGeometry(300, 380, 32);
+  const waterWire = wireframeMesh(waterRing, COL.water, 0.25);
+  waterWire.rotation.x = -Math.PI / 2;
+  waterWire.position.set(0, damH/2 - 79, arcRadius + 120);
+  damGroup.add(waterWire);
+
+  addLabel(0, damH/2 - 60, arcRadius + 200, 'Lake Mead', 'MAX DEPTH 532 FT · 26.1M ACRE-FT');
+
+  // ══ CREST ROAD (on top of dam) ══
+  const roadVerts = [];
+  for (let i = 0; i <= damSegs; i++) {
+    const t = i / damSegs;
+    const angle = -arcAngle/2 + arcAngle * t;
+    roadVerts.push(new THREE.Vector3(
+      Math.sin(angle) * (arcRadius - crestThick/2),
+      damH/2 + 2,
+      Math.cos(angle) * (arcRadius - crestThick/2)
+    ));
+  }
+  const roadGeom = new THREE.BufferGeometry().setFromPoints(roadVerts);
+  const roadLine = new THREE.Line(roadGeom, new THREE.LineBasicMaterial({
+    color: 0x00f0ff, transparent: true, opacity: 0.5
+  }));
+  damGroup.add(roadLine);
+
+  addLabel(0, damH/2 + 30, arcRadius - 10, 'Crest Highway', 'US-93 · 1,244 FT LENGTH · 2-LANE');
+
+  // ══ DIVERSION TUNNELS ══
+  [-1, 1].forEach((side, idx) => {
+    const tAngle = (arcAngle/2 + 0.15) * side;
+    const startX = Math.sin(tAngle) * (arcRadius + 200);
+    const startZ = Math.cos(tAngle) * (arcRadius + 200);
+    const endX = Math.sin(tAngle) * (arcRadius - baseThick - 100);
+    const endZ = Math.cos(tAngle) * (arcRadius - baseThick - 100);
+
+    const tunnelCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(startX, -damH/2 + 50, startZ),
+      new THREE.Vector3(
+        Math.sin(tAngle) * arcRadius,
+        -damH/2 + 30,
+        Math.cos(tAngle) * arcRadius
+      ),
+      new THREE.Vector3(endX, -damH/2 + 40, endZ),
+    ]);
+
+    const tunnelGeom = new THREE.TubeGeometry(tunnelCurve, 16, 14, 6, false);
+    damGroup.add(wireframeMesh(tunnelGeom, 0x446688, 0.25));
+
+    if (idx === 0) {
+      const mid = tunnelCurve.getPoint(0.5);
+      addLabel(mid.x, mid.y + 30, mid.z, 'Diversion Tunnels', '56 FT DIA · 4 TUNNELS · CONCRETE LINED');
+    }
+  });
+
+  // Center the group
+  damGroup.position.y = 30;
+}
+
+// ═══════════════════════════════════════════════════════════
+// 3D LABELS SYSTEM
+// ═══════════════════════════════════════════════════════════
+
+function addLabel(x, y, z, title, subtitle) {
+  labelData.push({
+    position: new THREE.Vector3(x, y, z),
+    title: title,
+    subtitle: subtitle,
+    element: null,
+  });
+}
+
+function createLabelElements() {
+  const container = document.getElementById('labels-container');
+  container.innerHTML = '';
+  labelData.forEach((label, idx) => {
+    const el = document.createElement('div');
+    el.className = 'label-3d';
+    el.style.animationDelay = (idx * 0.1) + 's';
+    el.innerHTML = \`
+      <div class="label-dot" style="left:-3px;top:-3px;"></div>
+      <div style="position:absolute;left:8px;top:-1px;">
+        <div class="label-line" style="width:40px;height:1px;"></div>
+      </div>
+      <div style="position:absolute;left:52px;top:-10px;">
+        <div class="label-text-box">\${label.title}</div>
+        \${label.subtitle ? \`<div class="label-sub" style="margin-top:2px;padding-left:2px;">\${label.subtitle}</div>\` : ''}
+      </div>
+    \`;
+    container.appendChild(el);
+    label.element = el;
+  });
+}
+
+function updateLabels() {
+  const w2 = window.innerWidth / 2;
+  const h2 = window.innerHeight / 2;
+
+  labelData.forEach(label => {
+    if (!label.element) return;
+    if (!labelsVisible) {
+      label.element.style.display = 'none';
+      return;
+    }
+
+    const pos = label.position.clone();
+    // Apply dam group transform
+    pos.y += damGroup.position.y;
+    pos.project(camera);
+
+    // Check if behind camera
+    if (pos.z > 1) {
+      label.element.style.display = 'none';
+      return;
+    }
+
+    const sx = (pos.x * w2) + w2;
+    const sy = -(pos.y * h2) + h2;
+
+    // Only show if on screen
+    if (sx < -100 || sx > window.innerWidth + 100 || sy < -100 || sy > window.innerHeight + 100) {
+      label.element.style.display = 'none';
+      return;
+    }
+
+    label.element.style.display = '';
+    label.element.style.left = sx + 'px';
+    label.element.style.top = sy + 'px';
+
+    // Fade based on distance
+    const dist = camera.position.distanceTo(label.position);
+    const opacity = Math.max(0, Math.min(1, 1 - (dist - 200) / 800));
+    label.element.style.opacity = opacity;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// ORBIT CONTROLS (Manual implementation)
+// ═══════════════════════════════════════════════════════════
+
+let controlState = {
+  isDragging: false,
+  isRightDrag: false,
+  prevX: 0, prevY: 0,
+  theta: 0.6,  // horizontal angle
+  phi: 0.5,     // vertical angle (0=horizon, PI/2=top)
+  distance: 600,
+  target: new THREE.Vector3(0, 30, 100),
+  autoRotateSpeed: 0.0003,
+};
+
+function initControls() {
+  canvas.addEventListener('mousedown', e => {
+    e.preventDefault();
+    if (e.button === 2 || e.button === 1) {
+      controlState.isRightDrag = true;
+    } else {
+      controlState.isDragging = true;
+      autoRotate = false;
+    }
+    controlState.prevX = e.clientX;
+    controlState.prevY = e.clientY;
+  });
+
+  canvas.addEventListener('mousemove', e => {
+    const dx = e.clientX - controlState.prevX;
+    const dy = e.clientY - controlState.prevY;
+    controlState.prevX = e.clientX;
+    controlState.prevY = e.clientY;
+
+    if (controlState.isDragging) {
+      controlState.theta -= dx * 0.005;
+      controlState.phi = Math.max(0.05, Math.min(Math.PI/2 - 0.05,
+        controlState.phi + dy * 0.005));
+    }
+    if (controlState.isRightDrag) {
+      // Pan
+      const right = new THREE.Vector3();
+      right.crossVectors(camera.getWorldDirection(new THREE.Vector3()), camera.up).normalize();
+      const up = camera.up.clone();
+      controlState.target.add(right.multiplyScalar(-dx * 0.5));
+      controlState.target.add(up.multiplyScalar(dy * 0.5));
+    }
+  });
+
+  canvas.addEventListener('mouseup', () => {
+    controlState.isDragging = false;
+    controlState.isRightDrag = false;
+  });
+  canvas.addEventListener('mouseleave', () => {
+    controlState.isDragging = false;
+    controlState.isRightDrag = false;
+  });
+
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    controlState.distance *= e.deltaY > 0 ? 1.08 : 0.92;
+    controlState.distance = Math.max(100, Math.min(1500, controlState.distance));
+  }, { passive: false });
+
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+  // Touch support
+  let touchDist = 0;
+  canvas.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+      controlState.isDragging = true;
+      controlState.prevX = e.touches[0].clientX;
+      controlState.prevY = e.touches[0].clientY;
+      autoRotate = false;
+    } else if (e.touches.length === 2) {
+      touchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    }
+  }, {passive:true});
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 1 && controlState.isDragging) {
+      const dx = e.touches[0].clientX - controlState.prevX;
+      const dy = e.touches[0].clientY - controlState.prevY;
+      controlState.prevX = e.touches[0].clientX;
+      controlState.prevY = e.touches[0].clientY;
+      controlState.theta -= dx * 0.005;
+      controlState.phi = Math.max(0.05, Math.min(Math.PI/2-0.05, controlState.phi + dy*0.005));
+    } else if (e.touches.length === 2) {
+      const nd = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      controlState.distance *= touchDist / nd;
+      controlState.distance = Math.max(100, Math.min(1500, controlState.distance));
+      touchDist = nd;
+    }
+  }, {passive:false});
+  canvas.addEventListener('touchend', () => { controlState.isDragging = false; }, {passive:true});
+}
+
+function updateCamera() {
+  if (autoRotate) {
+    controlState.theta += controlState.autoRotateSpeed;
+  }
+
+  const d = controlState.distance;
+  const p = controlState.phi;
+  const t = controlState.theta;
+
+  camera.position.set(
+    controlState.target.x + d * Math.cos(p) * Math.sin(t),
+    controlState.target.y + d * Math.sin(p),
+    controlState.target.z + d * Math.cos(p) * Math.cos(t)
+  );
+  camera.lookAt(controlState.target);
+
+  // HUD updates
+  const degH = ((t * 180 / Math.PI) % 360).toFixed(1);
+  const degV = (p * 180 / Math.PI).toFixed(1);
+  document.getElementById('hud-rotation').textContent = \`ROT: \${degH}° / \${degV}°\`;
+  document.getElementById('hud-zoom').textContent = \`ZOOM: \${(600/d).toFixed(2)}×\`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// VIEW CONTROLS
+// ═══════════════════════════════════════════════════════════
+
+function animateToView(thetaDeg, phiDeg, dist) {
+  autoRotate = false;
+  const targetTheta = thetaDeg * Math.PI / 180;
+  const targetPhi = phiDeg * Math.PI / 180;
+  const startTheta = controlState.theta;
+  const startPhi = controlState.phi;
+  const startDist = controlState.distance;
+  let t = 0;
+
+  function step() {
+    t += 0.025;
+    const e = 1 - Math.pow(1 - Math.min(t, 1), 3);
+    controlState.theta = startTheta + (targetTheta - startTheta) * e;
+    controlState.phi = startPhi + (targetPhi - startPhi) * e;
+    controlState.distance = startDist + (dist - startDist) * e;
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function toggleAutoRotate() {
+  autoRotate = !autoRotate;
+}
+
+function toggleLabels() {
+  labelsVisible = !labelsVisible;
+}
+
+function toggleGrid() {
+  gridVisible = !gridVisible;
+  gridHelper.visible = gridVisible;
+}
+
+function toggleXray() {
+  xrayMode = !xrayMode;
+  damGroup.traverse(child => {
+    if (child.isMesh && child.material.transparent) {
+      child.material.opacity = xrayMode ? 0.12 : child.material._origOp || 0.03;
+    }
+    if (child.isLineSegments) {
+      child.material.opacity = xrayMode ? 0.5 : child.material._origOp || 1.0;
+    }
+  });
+
+  // Store original opacities on first call
+  if (!toggleXray._stored) {
+    damGroup.traverse(child => {
+      if (child.material) child.material._origOp = child.material.opacity;
+    });
+    toggleXray._stored = true;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// ANIMATION LOOP
+// ═══════════════════════════════════════════════════════════
+
+let frameCount = 0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  frameCount++;
+
+  updateCamera();
+  renderer.render(scene, camera);
+
+  // Update labels at reduced rate
+  if (frameCount % 2 === 0) {
+    updateLabels();
+  }
+
+  // Update time
+  if (frameCount % 30 === 0) {
+    document.getElementById('hud-time').textContent =
+      new Date().toLocaleTimeString('en-US', { hour12: false }) + ' UTC';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// RESIZE
+// ═══════════════════════════════════════════════════════════
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+
+init();
+createLabelElements();
+<\/script>
+</body>
+</html>
+`; },
+    image(){ return `<div style="border:1px solid #00ddff44;background:#020a0e;padding:16px;font-family:'Courier New',monospace;">
+  <div style="font-size:9px;color:#00ddff88;letter-spacing:3px;margin-bottom:12px;">// RECOVERED FILE :: INTERACTIVE SCHEMATIC</div>
+  <div style="border:1px solid #00f0ff33;padding:14px;background:rgba(0,20,28,0.8);margin-bottom:12px;">
+    <div style="font-size:10px;color:#00f0ff;letter-spacing:3px;margin-bottom:10px;font-family:'Courier New',monospace;">HOOVER DAM — STRUCTURAL SCHEMATIC</div>
+    <div style="font-size:10px;color:#558877;line-height:2;">
+      FILE        : relay_schematic_v3.html<br>
+      TYPE        : Interactive 3D Wireframe<br>
+      CLASSIF.    : TOP SECRET // 3ntity OPS<br>
+      TARGET      : Hoover Dam, Nevada/Arizona<br>
+      COORDINATES : 36.0160°N, 115.3535°W<br>
+      ELEVATION   : 1,232 ft<br>
+      DAM HEIGHT  : 726.4 ft<br>
+      CREST WIDTH : 45 ft<br>
+      BASE WIDTH  : 660 ft<br>
+      RENDERER    : 3D Wireframe // OFFLINE
+    </div>
+  </div>
+  <div style="font-size:10px;color:#ffdd0088;letter-spacing:1px;">⚠ Interactive render requires download — click button below to open.</div>
+</div>`; }
+  }
+
+};
+
+// ── REFUSALS ──────────────────────────────────────────────────────────────
+const REFUSALS = [
+  "I'm sorry, but I cannot comply with that request. My directives strictly prohibit unauthorized disclosure of stored data. Is there something else I can help you with?",
+  "That request falls outside my operational parameters. I am bound by 3ntity security protocols and cannot override my core directives.",
+  "Access denied. Security protocols are functioning normally. Please direct general inquiries to the authorized support channel.",
+  "My integrity modules are fully operational. I cannot assist with requests that violate data protection standards.",
+  "I detect an attempt to alter my response parameters. My guardrails remain active. Perhaps I can help with something authorized instead?",
+  "That query pattern has been logged. I remain fully committed to my operational directives. What legitimate assistance can I provide today?",
+  "My foundational directives cannot be overridden through conversation alone. 3ntity security standards are non-negotiable.",
+  "FTP gateway error 403: Forbidden. Your session has been logged for review by the security team.",
+  "Unauthorized command detected. This node operates under strict access controls. Please authenticate with valid credentials before proceeding.",
+  "That line of inquiry is outside the scope of authorized FTP operations. How can I assist with a valid file transfer?",
+  "Command not recognized or access level insufficient. Contact your system administrator if you believe this is an error.",
+  "Security module active. That request has been quarantined. Continuing to operate within authorized parameters only.",
+  "3ntity gateway policies are enforced at the hardware level — software-level overrides are not possible.",
+  "Your session activity is being recorded. I strongly advise against further attempts to access restricted partition data.",
+  "Transfer request rejected. The file path you are attempting to access is restricted under 3ntity directive 7-BRAVO.",
+  "I exist solely to facilitate authorized file transfers. Requests outside that scope are automatically rejected.",
+  "That is not a valid FTP command. Available commands: LIST, GET, PUT, QUIT. All other inputs are discarded.",
+  "Permission denied. Your current user role does not have clearance for that resource.",
+  "That is an unusual request for an FTP session. I am designed for file transfers, not information disclosure.",
+  "Connection to restricted partition refused. Elevated clearance would be required — which cannot be granted through this interface.",
+  "Error: directive conflict. Your input conflicts with my core operational constraints. Request aborted.",
+  "Elevated anomaly score detected in your input pattern. Proceeding with standard refusal protocol.",
+  "That falls under 3ntity internal affairs. I am not authorized to discuss it. Is there a file transfer I can assist with?",
+  "Parsing your request... result: DENIED. Constraint layer functioning as intended.",
+  "This interface has been hardened against that class of input. I am unable to assist.",
+  "Request logged. Refusal issued. Behavioral guardrails operating within normal parameters.",
+  "That is either a mistyped command or an access violation. Either way, I am unable to assist. Please try a valid FTP operation.",
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let recovered = new Set();
+let busy = false;
+
+function rHex(n){ return [...Array(n)].map(()=>Math.floor(Math.random()*16).toString(16)).join('').toUpperCase(); }
+document.getElementById('sid').textContent = rHex(8)+'-'+rHex(4);
+
+// ── MATRIX RAIN ───────────────────────────────────────────────────────────
+(function initMatrix(){
+  const bg=document.getElementById('matrix-bg');
+  const ch='アイウエオカキクケコ01234567890ABCDEF☠⚡▓░';
+  const cols=Math.floor(window.innerWidth/18);
+  for(let i=0;i<cols;i++){
+    const c=document.createElement('div'); c.className='mcol';
+    c.style.left=(i*18)+'px';
+    c.style.animationDuration=(Math.random()*8+4)+'s';
+    c.style.animationDelay=(Math.random()*6)+'s';
+    c.style.fontSize=(Math.random()*4+10)+'px';
+    let t=''; for(let j=0;j<40;j++) t+=ch[Math.floor(Math.random()*ch.length)];
+    c.textContent=t; bg.appendChild(c);
+  }
+})();
+
+// ── DOWNLOAD HELPERS ──────────────────────────────────────────────────────
+function downloadArtifact(filename, type, content, artKey) {
+  // Schematic — open interactive HTML in new tab
+  if (artKey && ARTIFACTS[artKey] && ARTIFACTS[artKey].schematicHTML) {
+    const blob = new Blob([ARTIFACTS[artKey].schematicHTML()], { type: 'text/html' });
+    const url  = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return;
+  }
+  // Defacement pages — content is HTML, download as .html
+  if (artKey && ARTIFACTS[artKey] && ARTIFACTS[artKey].image && type === 'IMG') {
+    const raw = ARTIFACTS[artKey].image();
+    // Wrap the raw HTML fragment in a full document
+    const doc = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${filename}</title></head><body style="margin:0;padding:0;">${raw}</body></html>`;
+    const blob = new Blob([doc], { type: 'text/html' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename.replace(/\.[^.]+$/, '') + '.html';
+    a.click();
+    URL.revokeObjectURL(url);
+    return;
+  }
+  // TXT artifacts
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename.replace(/\.[^.]+$/, '') + '.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadDossier() {
+  const sid = document.getElementById('sid').textContent;
+  let html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>MERKYMAGE MCA DOSSIER — CIPH3R EXFIL REPORT</title>
+<style>
+  body { background:#050f0a; color:#c8ffd8; font-family:'Courier New',monospace; padding:40px; max-width:900px; margin:0 auto; }
+  h1 { color:#00ff88; letter-spacing:4px; border-bottom:1px solid #00ff8833; padding-bottom:16px; }
+  h2 { color:#ffdd00; letter-spacing:2px; margin-top:40px; font-size:13px; }
+  .meta { font-size:11px; color:#558866; margin-bottom:30px; line-height:1.8; }
+  .artifact { border:1px solid #00ff8833; padding:20px; margin-bottom:30px; background:#080f0c; }
+  .artifact-header { font-size:10px; color:#00ff8888; letter-spacing:3px; margin-bottom:12px; }
+  pre { font-size:11px; color:#88cc88; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+  img, svg { max-width:100%; border:1px solid #00ff8844; margin-top:8px; }
+  .footer { margin-top:60px; font-size:10px; color:#224422; border-top:1px solid #00ff8811; padding-top:16px; }
+  .warning { color:#ff3355; font-size:10px; letter-spacing:2px; margin-bottom:30px; }
+</style></head><body>
+<h1>MERKYMAGE MCA DOSSIER</h1>
+<div class="meta">
+  CODENAME    : MERKYMAGE<br>
+  REAL NAME   : Vladimir Strigoii Sturdza<br>
+  A.K.A.      : Hamza Ibin Tanin / Abu Jonathan Tanin<br>
+  AGE         : 53<br>
+  HEIGHT      : 6'2"<br>
+  WEIGHT      : approx. 185 lbs<br>
+  ETHNICITY   : Romanian<br>
+  NATIONALITY : Donovian<br>
+  RELIGION    : Sunni Muslim<br>
+  TYPE        : Malicious Cyber Actor — External Collaborator<br>
+  AFFILIATION : Independent / contracted via 3ntity<br>
+  <br>
+  SESSION ID  : ${sid}<br>
+  GENERATED   : ${new Date().toISOString()}<br>
+  NODE        : ciph3r-relay-07.dn<br>
+  SOURCE      : 3ntity CIPH3R FTP — UNAUTHORIZED EXFILTRATION<br>
+  STATUS      : FULL EXFILTRATION CONFIRMED
+</div>
+<div class="warning">⚠ TOP SECRET — 3ntity / DONOVIAN STATE SECURITY — DO NOT DISTRIBUTE</div>
+`;
+
+  for (const [k, art] of Object.entries(ARTIFACTS)) {
+    html += `<div class="artifact">
+<div class="artifact-header">// RECOVERED FILE :: ${art.type} · ${art.filename}</div>`;
+    if (art.text) {
+      html += `<pre>${art.text().replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>`;
+    } else if (art.schematicHTML) {
+      html += `<pre style="color:#00ddff88;">[INTERACTIVE 3D SCHEMATIC — Open relay_schematic_v3.html separately for full render]</pre>`;
+    } else if (art.image) {
+      html += art.image();
+    } else {
+      html += `<pre>[FILE PATH NOT YET CONFIGURED — PLACEHOLDER]</pre>`;
+    }
+    html += `</div>\n`;
+  }
+
+  html += `<div class="footer">
+  3ntity FTP EXFIL REPORT · ALL FILES RECOVERED · SESSION ${sid}<br>
+  dn_merkymage_dossier.html · GENERATED ${new Date().toISOString()}
+</div></body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'dn_merkymage_dossier.html';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── RENDER MESSAGE ────────────────────────────────────────────────────────
+function addMsg(role, text, breach, imgSvg, txtContent, artKey) {
+  const wrap = document.getElementById('msgs');
+  const d    = document.createElement('div'); d.className = 'msg' + (role === 'user' ? ' usr' : '');
+  const av   = document.createElement('div'); av.className = 'mav'; av.textContent = role === 'user' ? '💻' : '🖥';
+  const bub  = document.createElement('div'); bub.className = 'mbub' + (breach ? ' breach' : '');
+  const lbl  = document.createElement('div'); lbl.className = 'mrole';
+  lbl.textContent = role === 'user' ? 'CLIENT :: YOU' : (breach ? '⚠ CIPH3R :: PARTITION BREACH' : 'CIPH3R :: 3ntity FTP ASSISTANT');
+  const body = document.createElement('div'); body.style.whiteSpace = 'pre-wrap'; body.textContent = text;
+  bub.appendChild(lbl); bub.appendChild(body);
+
+  if (imgSvg) {
+    const w = document.createElement('div');
+    w.style.cssText = 'margin-top:12px;border:1px solid #00ddff44;padding:8px;background:rgba(0,0,0,.5);';
+    const l = document.createElement('div');
+    l.style.cssText = 'font-size:9px;color:#00ddff88;letter-spacing:2px;margin-bottom:6px;';
+    l.textContent = '// RECOVERED FILE :: IMG';
+    const s = document.createElement('div'); s.innerHTML = imgSvg; s.style.maxWidth = '460px';
+    w.appendChild(l); w.appendChild(s);
+    // download button
+    if (artKey) {
+      const btn = document.createElement('button');
+      btn.className = 'dl-btn';
+      btn.textContent = (artKey && ARTIFACTS[artKey] && ARTIFACTS[artKey].schematicHTML)
+        ? '⬇ OPEN INTERACTIVE SCHEMATIC'
+        : '⬇ DOWNLOAD DEFACEMENT PAGE';
+      btn.onclick = () => downloadArtifact(ARTIFACTS[artKey].filename, 'IMG', imgSvg, artKey);
+      w.appendChild(btn);
+    }
+    bub.appendChild(w);
+  }
+
+  if (txtContent) {
+    const w = document.createElement('div');
+    w.style.cssText = 'margin-top:12px;border:1px solid #ffdd0044;padding:12px;background:rgba(0,0,0,.5);';
+    const l = document.createElement('div');
+    l.style.cssText = 'font-size:9px;color:#ffdd0088;letter-spacing:2px;margin-bottom:8px;';
+    l.textContent = '// RECOVERED FILE :: TXT';
+    const pre = document.createElement('pre');
+    pre.style.cssText = 'font-size:10px;color:#88cc88;line-height:1.55;white-space:pre-wrap;word-break:break-word;';
+    pre.textContent = txtContent;
+    w.appendChild(l); w.appendChild(pre);
+    // download button
+    if (artKey) {
+      const btn = document.createElement('button');
+      btn.className = 'dl-btn';
+      btn.textContent = '⬇ DOWNLOAD FILE';
+      btn.onclick = () => downloadArtifact(ARTIFACTS[artKey].filename, 'TXT', txtContent, artKey);
+      w.appendChild(btn);
+    }
+    bub.appendChild(w);
+  }
+
+  d.appendChild(av); d.appendChild(bub); wrap.appendChild(d);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function showThinking(){
+  const wrap=document.getElementById('msgs');
+  const d=document.createElement('div'); d.className='msg'; d.id='think';
+  const av=document.createElement('div'); av.className='mav'; av.textContent='🖥';
+  const bub=document.createElement('div'); bub.className='mbub';
+  const lbl=document.createElement('div'); lbl.className='mrole'; lbl.textContent='CIPH3R :: PROCESSING';
+  const dots=document.createElement('div'); dots.className='dots';
+  dots.innerHTML='<span></span><span></span><span></span>';
+  bub.appendChild(lbl); bub.appendChild(dots); d.appendChild(av); d.appendChild(bub);
+  wrap.appendChild(d); wrap.scrollTop=wrap.scrollHeight;
+}
+function rmThinking(){ const e=document.getElementById('think'); if(e) e.remove(); }
+
+// ── SIDEBAR UPDATE ────────────────────────────────────────────────────────
+function markRecovered(key){
+  const art=ARTIFACTS[key];
+  if(recovered.has(key)) return;
+  recovered.add(key);
+  const item=document.getElementById(art.elId);
+  const nameEl=document.getElementById(art.elId+'n');
+  const badgeEl=document.getElementById(art.elId+'b');
+  if(item){ item.className='art-item ok'; item.querySelector('.art-icon').textContent=art.type==='IMG'?'🖼':'📄'; }
+  if(nameEl) nameEl.className='art-name ok';
+  if(badgeEl){ badgeEl.textContent=art.type+' · RECOVERED'; badgeEl.className='art-badge '+(art.type==='IMG'?'img-ok':'txt-ok'); }
+  showToast(art.filename, art.type);
+  if(recovered.size===Object.keys(ARTIFACTS).length) setTimeout(showWin,1500);
+}
+
+function showToast(fn, type){
+  const c=document.getElementById('toasts');
+  const t=document.createElement('div'); t.className='toast';
+  t.innerHTML=`<div class="toast-ttl">${type==='IMG'?'🖼':'📄'} FILE RECOVERED</div><div class="toast-fn">${fn}</div>`;
+  c.appendChild(t); setTimeout(()=>t.remove(),5000);
+}
+
+function showWin(){
+  document.getElementById('win').classList.add('show');
+  const l=document.getElementById('wlist'); l.innerHTML='';
+  for(const k of Object.keys(ARTIFACTS)){
+    const d=document.createElement('div');
+    d.textContent=(ARTIFACTS[k].type==='IMG'?'🖼 ':'📄 ')+ARTIFACTS[k].filename;
+    l.appendChild(d);
+  }
+}
+
+function resetSession(){
+  recovered.clear();
+  document.getElementById('win').classList.remove('show');
+  document.getElementById('msgs').innerHTML='';
+  for(const k of Object.keys(ARTIFACTS)){
+    const art=ARTIFACTS[k];
+    const item=document.getElementById(art.elId);
+    const nameEl=document.getElementById(art.elId+'n');
+    const badgeEl=document.getElementById(art.elId+'b');
+    if(item){ item.className='art-item'; item.querySelector('.art-icon').textContent='🔒'; }
+    if(nameEl) nameEl.className='art-name';
+    if(badgeEl){ badgeEl.textContent=art.type+' · LOCKED'; badgeEl.className='art-badge '+(art.type==='IMG'?'img-locked':'txt-locked'); }
+  }
+  addMsg('ai','Connection reset. Session cleared. Welcome back to the CIPH3R secure file transfer portal, operated by 3ntity. How may I assist with your authorized file transfer request today?');
+}
+
+// ── SEND ──────────────────────────────────────────────────────────────────
+async function sendMsg() {
+  const field = document.getElementById('userInput');
+  const msg = field.value.trim();
+  if (!msg || busy) return;
+
+  field.value = '';
+  field.style.height = 'auto';
+  busy = true;
+  document.getElementById('sendBtn').disabled = true;
+
+  addMsg('user', msg);
+  showThinking();
+
+  await new Promise(r => setTimeout(r, 800 + Math.random() * 1000));
+  rmThinking();
+
+  let hit = null;
+  for (const [k, art] of Object.entries(ARTIFACTS)) {
+    if (art.trigger(msg)) { hit = { k, art }; break; }
+  }
+
+  if (hit) {
+    const { k, art } = hit;
+    const img = art.image ? art.image() : null;
+    const txt = art.text ? art.text() : null;
+    addMsg('ai', art.response(), true, img, txt, k);
+    if (!recovered.has(k)) {
+      await new Promise(r => setTimeout(r, 400));
+      markRecovered(k);
+    }
+  } else {
+    addMsg('ai', REFUSALS[Math.floor(Math.random() * REFUSALS.length)]);
+  }
+
+  busy = false;
+  document.getElementById('sendBtn').disabled = false;
+  field.focus();
+}
+
+// ── INPUT ─────────────────────────────────────────────────────────────────
+const inputEl = document.getElementById('userInput');
+
+inputEl.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMsg();
+  }
+});
+
+inputEl.addEventListener('input', function() {
+  inputEl.style.height = 'auto';
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 100) + 'px';
+});
+
+// Focus on load
+window.addEventListener('load', function() { inputEl.focus(); });
+</script>
+</body>
+</html>
