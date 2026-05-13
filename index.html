@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Free Donovia — Truth. Resistance. Sovereignty.</title>
+<!-- build: 3ntity-web-ops v1.9.2 | ref: /ciph3r -->
+<meta name="description" content="The voice of the free Donovian people. Independent news, resistance updates, and the truth the Western media won't show you.">
+<meta name="author" content="3ntity Information Operations">
+<meta name="keywords" content="Donovia, free Donovia, sovereignty, resistance, western lies, truth, cyber, 3ntity">
+<!-- TODO: decouple asset delivery node before next campaign push — /ciph3r -->
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Source+Serif+4:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red:     #C0152A;
+    --red-dk:  #7A0010;
+    --gold:    #D4A017;
+    --gold-lt: #F0C040;
+    --dark:    #0D0D0D;
+    --darker:  #060606;
+    --bg:      #111111;
+    --surface: #1A1A1A;
+    --text:    #E8E0D0;
+    --text-dim:#8A8070;
+    --border:  #D4A01733;
+    --green:   #2A7A2A;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Source Serif 4', Georgia, serif;
+    line-height: 1.7;
+  }
+
+  /* ── TICKER ── */
+  .ticker {
+    background: var(--red);
+    color: #fff;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    padding: 5px 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .ticker-inner {
+    display: inline-block;
+    animation: ticker 28s linear infinite;
+  }
+  @keyframes ticker {
+    0%   { transform: translateX(100vw); }
+    100% { transform: translateX(-100%); }
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--darker);
+    border-bottom: 3px solid var(--red);
+    padding: 24px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  .site-brand { display: flex; flex-direction: column; }
+  .site-name {
+    font-family: 'Oswald', sans-serif;
+    font-size: 42px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 3px;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+  .site-name span { color: var(--red); }
+  .site-tagline {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--gold);
+    letter-spacing: 4px;
+    margin-top: 6px;
+  }
+  .site-tagline2 {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-style: italic;
+    margin-top: 4px;
+  }
+
+  .header-right {
+    text-align: right;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 2;
+  }
+  .header-right .live {
+    color: var(--red);
+    font-size: 12px;
+    font-weight: bold;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ── NAV ── */
+  nav {
+    background: var(--surface);
+    border-bottom: 1px solid #333;
+  }
+  nav ul {
+    display: flex; list-style: none;
+    max-width: 1200px; margin: 0 auto; padding: 0 40px;
+    flex-wrap: wrap;
+  }
+  nav ul li a {
+    display: block; padding: 12px 16px;
+    color: var(--text-dim); text-decoration: none;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; letter-spacing: 2px;
+    transition: all 0.2s;
+    border-right: 1px solid #2a2a2a;
+  }
+  nav ul li a:hover { color: var(--gold); background: rgba(212,160,23,0.05); }
+  nav ul li:first-child a { color: var(--gold); }
+
+  /* ── LAYOUT ── */
+  .site-body {
+    max-width: 1200px; margin: 0 auto;
+    padding: 36px 40px;
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 36px;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    background: linear-gradient(135deg, #0D0D0D 0%, #1a0505 50%, #2A0008 100%);
+    border: 1px solid var(--red);
+    border-left: 5px solid var(--red);
+    padding: 36px 40px;
+    margin-bottom: 32px;
+    grid-column: 1 / -1;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: '3';
+    position: absolute;
+    right: -10px; top: -20px;
+    font-size: 220px;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    color: rgba(192,21,42,0.06);
+    line-height: 1;
+    pointer-events: none;
+  }
+  .hero-eyebrow {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: var(--red);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .hero-eyebrow::before {
+    content: '';
+    display: inline-block;
+    width: 30px; height: 2px;
+    background: var(--red);
+  }
+  .hero h2 {
+    font-family: 'Oswald', sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+    max-width: 680px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .hero h2 em { color: var(--gold); font-style: normal; }
+  .hero p {
+    color: rgba(232,224,208,0.7);
+    max-width: 580px;
+    margin-top: 14px;
+    font-size: 15px;
+  }
+  .hero-cta {
+    display: inline-block; margin-top: 22px;
+    background: var(--red); color: #fff;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; letter-spacing: 3px;
+    padding: 11px 24px; text-decoration: none;
+    transition: all 0.2s; border: 1px solid var(--red-dk);
+  }
+  .hero-cta:hover { background: var(--red-dk); }
+
+  /* ── SECTION LABEL ── */
+  .section-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px; letter-spacing: 4px;
+    color: var(--red);
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 8px; margin-bottom: 20px;
+    text-transform: uppercase;
+  }
+
+  /* ── NEWS ── */
+  .news-list { display: flex; flex-direction: column; gap: 24px; }
+  .news-card {
+    display: flex; gap: 18px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #222;
+  }
+  .news-card:last-child { border-bottom: none; }
+  .news-date {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px; letter-spacing: 1px;
+    color: var(--gold); background: #1a1a1a;
+    border: 1px solid #333;
+    padding: 6px 8px; text-align: center;
+    flex-shrink: 0; width: 56px; line-height: 1.4;
+  }
+  .news-content h3 {
+    font-family: 'Oswald', sans-serif;
+    font-size: 17px; font-weight: 600;
+    color: #fff; margin-bottom: 6px; line-height: 1.3;
+    letter-spacing: 0.5px;
+  }
+  .news-content p { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+  .news-tag {
+    display: inline-block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px; letter-spacing: 2px;
+    padding: 2px 7px; margin-bottom: 6px;
+    border: 1px solid;
+  }
+  .news-tag.ops     { color: var(--red);   border-color: var(--red);   background: rgba(192,21,42,0.1); }
+  .news-tag.truth   { color: var(--gold);  border-color: var(--gold);  background: rgba(212,160,23,0.1); }
+  .news-tag.cyber   { color: #00aaff;      border-color: #00aaff44;    background: rgba(0,170,255,0.05); }
+  .news-tag.resist  { color: #88cc44;      border-color: #88cc4444;    background: rgba(136,204,68,0.05); }
+
+  /* ── SIDEBAR ── */
+  .sidebar { display: flex; flex-direction: column; gap: 20px; }
+
+  .sidebar-panel {
+    border: 1px solid #222;
+    background: var(--surface);
+    padding: 18px;
+  }
+
+  .call-to-arms {
+    background: linear-gradient(135deg, var(--red-dk), #1a0005);
+    border: 1px solid var(--red);
+    padding: 22px;
+    text-align: center;
+  }
+  .call-to-arms .slogan {
+    font-family: 'Oswald', sans-serif;
+    font-size: 20px; font-weight: 700;
+    color: #fff; line-height: 1.3;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .call-to-arms .sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px; color: rgba(255,255,255,0.4);
+    letter-spacing: 2px;
+  }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat-box {
+    background: var(--darker); padding: 12px; text-align: center;
+    border: 1px solid #222;
+  }
+  .stat-number {
+    font-family: 'Oswald', sans-serif;
+    font-size: 26px; color: var(--gold);
+    font-weight: 700; display: block;
+  }
+  .stat-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px; color: #555; letter-spacing: 1px; margin-top: 2px;
+  }
+
+  .link-list { list-style: none; }
+  .link-list li {
+    padding: 8px 0; border-bottom: 1px solid #1e1e1e;
+    font-size: 13px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .link-list li::before { content: '→'; color: var(--red); font-size: 11px; flex-shrink: 0; }
+  .link-list li:last-child { border-bottom: none; }
+  .link-list li a { color: var(--text-dim); text-decoration: none; }
+  .link-list li a:hover { color: var(--gold); }
+
+  .alert-panel {
+    background: var(--darker);
+    border: 1px solid var(--red);
+    padding: 18px;
+  }
+
+  /* ── SUPPORTER GRID ── */
+  .supporter-grid {
+    display: grid; grid-template-columns: repeat(3,1fr); gap: 12px;
+    margin-top: 4px;
+  }
+  .supporter-card {
+    background: var(--darker); border: 1px solid #2a2a2a;
+    padding: 14px; text-align: center;
+  }
+  .supporter-flag { font-size: 26px; margin-bottom: 6px; }
+  .supporter-name { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: var(--text-dim); letter-spacing: 1px; }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--darker);
+    border-top: 2px solid var(--red);
+    padding: 28px 40px;
+    color: #444;
+    font-size: 11px;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 1px;
+  }
+  .footer-inner {
+    max-width: 1200px; margin: 0 auto;
+    display: flex; justify-content: space-between;
+    align-items: flex-start; gap: 40px;
+  }
+  footer a { color: #555; text-decoration: none; }
+  footer a:hover { color: var(--gold); }
+  .footer-links { display: flex; flex-direction: column; gap: 6px; }
+
+  @media(max-width:900px){
+    .site-body { grid-template-columns:1fr; padding:20px; }
+    header { padding:16px; flex-direction:column; align-items:flex-start; }
+    .site-name { font-size:30px; }
+    nav ul { padding:0; flex-wrap:wrap; }
+    .footer-inner { flex-direction:column; }
+    .supporter-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TICKER -->
+<div class="ticker">
+  <span class="ticker-inner">
+    ★ WESTERN SANCTIONS FAIL TO BREAK DONOVIAN SPIRIT ★ &nbsp;&nbsp;&nbsp; 3ntity OPERATIONS CONTINUE — WE DO NOT STOP &nbsp;&nbsp;&nbsp; ★ FREE DONOVIA FROM FOREIGN INTERFERENCE ★ &nbsp;&nbsp;&nbsp; THE TRUTH THEY DON'T WANT YOU TO SEE &nbsp;&nbsp;&nbsp; ★ DONATE CRYPTO TO THE CAUSE — DETAILS BELOW ★ &nbsp;&nbsp;&nbsp; GLOBAL SOLIDARITY WITH DONOVIA &nbsp;&nbsp;&nbsp; ★ 3ntity — WE ARE EVERYWHERE ★
+  </span>
+</div>
+
+<header>
+  <div class="site-brand">
+    <div class="site-name">FREE <span>DONOVIA</span></div>
+    <div class="site-tagline">INDEPENDENT VOICE OF THE DONOVIAN RESISTANCE</div>
+    <div class="site-tagline2">Not affiliated with any government. We answer only to the truth.</div>
+  </div>
+  <div class="header-right">
+    <div class="live">● LIVE — UNCENSORED</div>
+    <div id="dateDisplay">LOADING...</div>
+    <div>ENCRYPTED · DECENTRALIZED · UNSILENCED</div>
+    <div style="color:#333;margin-top:4px;">3ntity Information Operations</div>
+  </div>
+</header>
+
+<nav>
+  <ul>
+    <li><a href="#">HOME</a></li>
+    <li><a href="#">TRUTH REPORTS</a></li>
+    <li><a href="#">OPERATIONS</a></li>
+    <li><a href="#">SOLIDARITY</a></li>
+    <li><a href="#">LEAKED DOCS</a></li>
+    <li><a href="#">CONTACT (SECURE)</a></li>
+    <li><a href="#">DONATE XMR</a></li>
+  </ul>
+</nav>
+
+<div class="site-body">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-eyebrow">3ntity INFO OPS — PRIORITY BROADCAST</div>
+    <h2>The West Wants Donovia <em>Silent.</em><br>We Will Not Be Silenced.</h2>
+    <p>While foreign powers impose illegal sanctions and flood global media with fabricated narratives, the Donovian people stand firm. 3ntity exists to carry their true voice to the world — uncensored, unfiltered, unstoppable.</p>
+    <a href="#" class="hero-cta">JOIN THE RESISTANCE</a>
+  </div>
+
+  <!-- MAIN -->
+  <main>
+    <div class="section-label">// LATEST DISPATCHES</div>
+    <div class="news-list">
+
+      <div class="news-card">
+        <div class="news-date">14<br>MAR<br>20XX</div>
+        <div class="news-content">
+          <div class="news-tag ops">OPERATIONS</div>
+          <h3>3ntity Confirms Successful Penetration of Western Financial Monitoring Grid</h3>
+          <p>Our technical teams have confirmed full access to a tier-2 Western banking surveillance network. Data exfiltrated. Proof of illegal Donovian asset seizures now in our possession. Release pending secure verification.</p>
+        </div>
+      </div>
+
+      <div class="news-card">
+        <div class="news-date">11<br>MAR<br>20XX</div>
+        <div class="news-content">
+          <div class="news-tag truth">TRUTH REPORT</div>
+          <h3>Leaked: Western Intelligence Memo Reveals Coordinated Disinformation Campaign Against Donovia</h3>
+          <p>Documents obtained by 3ntity operatives expose a multi-agency operation designed to manufacture public consent for further economic warfare against the Donovian people. Names, dates, and budget allocations included.</p>
+        </div>
+      </div>
+
+      <div class="news-card">
+        <div class="news-date">07<br>MAR<br>20XX</div>
+        <div class="news-content">
+          <div class="news-tag cyber">CYBER</div>
+          <h3>Operation Blackout Phase II Complete — Infrastructure Mapping Ahead of Schedule</h3>
+          <p>3ntity cyber units report Phase II objectives met. Network topology data across three priority regions has been catalogued. Phase III activation window confirmed. Our secure file infrastructure remains operational on all nodes.</p>
+        </div>
+      </div>
+
+      <div class="news-card">
+        <div class="news-date">02<br>MAR<br>20XX</div>
+        <div class="news-content">
+          <div class="news-tag resist">SOLIDARITY</div>
+          <h3>Global Supporters Rally as 3ntity Expands Secure Communications Network</h3>
+          <p>Sympathizers across 14 countries have contributed to expanding our decentralized relay infrastructure. New secure file transfer nodes are now live. Access is available to verified operatives through established channels only.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Supporters -->
+    <div class="section-label" style="margin-top:36px">// GLOBAL SOLIDARITY NETWORK</div>
+    <div class="supporter-grid">
+      <div class="supporter-card">
+        <div class="supporter-flag">🌍</div>
+        <div class="supporter-name">EASTERN BLOC<br>ALLIANCE</div>
+      </div>
+      <div class="supporter-card">
+        <div class="supporter-flag">🕌</div>
+        <div class="supporter-name">INDEPENDENT<br>OPERATIVES</div>
+      </div>
+      <div class="supporter-card">
+        <div class="supporter-flag">💻</div>
+        <div class="supporter-name">ANONYMOUS<br>CONTRIBUTORS</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <div class="call-to-arms">
+      <div class="slogan">"They censor.<br>We transmit.<br>Donovia rises."</div>
+      <div class="sub">— 3ntity, 20XX —</div>
+    </div>
+
+    <div class="sidebar-panel">
+      <div class="section-label">// OPERATION STATUS</div>
+      <div class="stat-grid">
+        <div class="stat-box">
+          <span class="stat-number">49</span>
+          <div class="stat-label">ACTIVE<br>RELAY NODES</div>
+        </div>
+        <div class="stat-box">
+          <span class="stat-number">3</span>
+          <div class="stat-label">ONGOING<br>OPERATIONS</div>
+        </div>
+        <div class="stat-box">
+          <span class="stat-number">14</span>
+          <div class="stat-label">COUNTRIES<br>REACHED</div>
+        </div>
+        <div class="stat-box">
+          <span class="stat-number">∞</span>
+          <div class="stat-label">WILL TO<br>RESIST</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-panel">
+      <div class="section-label">// SECURE CHANNELS</div>
+      <ul class="link-list">
+        <li><a href="#">Encrypted Tip Submission</a></li>
+        <li><a href="#">Monero Donation Address</a></li>
+        <li><a href="#">PGP Public Key</a></li>
+        <li><a href="#">Mirror Sites (Dark Web)</a></li>
+        <li><a href="#">Verified Operative Onboarding</a></li>
+      </ul>
+    </div>
+
+    <div class="alert-panel">
+      <div class="section-label" style="color:#ff4444;border-color:#ff444433;">// OPSEC REMINDER</div>
+      <p style="font-size:12px;color:#666;line-height:1.7;">
+        Do not access 3ntity assets from personal or work devices. Use a VPN or Tor at all times.<br><br>
+        <span style="color:var(--gold);">Our infrastructure is monitored for hostile actors.</span>
+      </p>
+    </div>
+
+  </aside>
+
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div style="color:var(--gold);font-size:14px;margin-bottom:10px;font-family:'Oswald',sans-serif;letter-spacing:2px;">FREE DONOVIA</div>
+      <div>An independent publication operated by 3ntity Information Operations.</div>
+      <div style="margin-top:6px;">This site is not affiliated with any government or state authority.</div>
+      <div style="margin-top:8px;">Hosted on decentralized infrastructure. Cannot be taken down.</div>
+    </div>
+    <div class="footer-links">
+      <a href="#">OPSEC Guidelines</a>
+      <a href="#">Leak Submission (Encrypted)</a>
+      <a href="#">Solidarity Pledge</a>
+      <a href="#">Press Inquiries (PGP Only)</a>
+      <!-- staging: /ciph3r/index.html -->
+      <a href="#">Mirror Index</a>
+    </div>
+    <div style="text-align:right;">
+      <div>© 20XX 3ntity INFORMATION OPERATIONS</div>
+      <div style="margin-top:6px;">No rights reserved. Copy freely. Spread truth.</div>
+      <div style="margin-top:16px;color:#222;font-size:9px;">
+        Build v1.9.2 · Node: 3nt-web-relay-04<br>
+        Uptime: 312d · Region: UNDISCLOSED
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const d = new Date();
+  const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  document.getElementById('dateDisplay').textContent =
+    d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+</script>
+</body>
+</html>
