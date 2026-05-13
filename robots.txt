@@ -1,0 +1,19 @@
+# robots.txt — Republic of Donovia State Portal
+# Ministry of Digital Infrastructure — Portal v2.1.4
+
+User-agent: *
+Allow: /
+Allow: /news/
+Allow: /ministries/
+Allow: /leadership/
+Allow: /citizens/
+Allow: /contact/
+
+Disallow: /admin/
+Disallow: /internal/
+Disallow: /ciph3r/
+Disallow: /logs/
+Disallow: /backup/
+
+# Sitemap
+Sitemap: https://donovia.gov.dn/sitemap.xml
